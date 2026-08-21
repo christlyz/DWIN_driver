@@ -37,14 +37,15 @@
 
 #include "zigbee_app_framework_event.h"
 
-static void read_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void test_read_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void test_text_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void check_page_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 
-static void test_1_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void test_2_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void test_3_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void fault_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 
+uint8_t brightness = 50;
+uint16_t page;
+bool increasing = true;
 sl_zigbee_event_t desativa_callback;
 void desativa_callback_handler(sl_zigbee_event_t *event);
 uint8_t callbacks = 0;
@@ -53,58 +54,38 @@ void app_init(void)
 {
 
   if(dwin_register_callback(
-      0x2001,
+      DWIN_VP_BUTTON,
       DWIN_CMD_READ,
-      test_1_callback) == SL_STATUS_OK)
-    callbacks++;
-
-  if(dwin_register_callback(
-      0x2002,
-      DWIN_CMD_READ,
-      test_2_callback) == SL_STATUS_OK)
+      0,
+      fire_button_callback) == SL_STATUS_OK)
     callbacks++;
 
   if(dwin_register_callback(
       DWIN_VP_BUTTON,
       DWIN_CMD_READ,
-      read_button_callback) == SL_STATUS_OK)
+      1,
+      fault_button_callback) == SL_STATUS_OK)
     callbacks++;
 
   if(dwin_register_callback(
-      0x2003,
+      DWIN_VP_BUTTON,
       DWIN_CMD_READ,
-      test_3_callback) == SL_STATUS_OK)
+      2,
+      ok_button_callback) == SL_STATUS_OK)
     callbacks++;
 
   printf("Callbacks %d\r\n", callbacks);
 
-  if(dwin_unregister_callback(
-      0x2002,
-      DWIN_CMD_READ) == SL_STATUS_OK)
-    callbacks--;
+  page = 0;
+  dwin_change_page(page);
 
-  if(dwin_unregister_callback(
-      0x2003,
-      DWIN_CMD_READ) == SL_STATUS_OK)
-    callbacks--;
-
-  printf("Callbacks %d\r\n", callbacks);
-
-  dwin_write_text("TESTE");
-
-  dwin_read_vp_async(0x3000,
+  dwin_read_vp_async(0x014,
                      1,
-                     5000,
-                     test_read_callback);
+                     1000,
+                     check_page_callback);
 
-  dwin_read_vp_async(DWIN_VP_TEXT,
-                     5,
-                     3000,
-                     test_text_callback);
-
-  dwin_cancel_read_vp(0x3000);
-//  sl_zigbee_event_init(&desativa_callback, desativa_callback_handler);
-//  sl_zigbee_event_set_delay_ms(&desativa_callback, 5000);
+  sl_zigbee_event_init(&desativa_callback, desativa_callback_handler);
+  sl_zigbee_event_set_delay_ms(&desativa_callback, 5000);
 }
 
 void app_process_action(void)
@@ -112,54 +93,32 @@ void app_process_action(void)
   dwin_poll();
 }
 
-static void read_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
-  uint16_t value = ((uint16_t)data[0] << 8 | data[1]);
-  switch(value)
-  {
-    case DWIN_BUTTON_FIRE:
-      dwin_set_icon(DWIN_ICON_FIRE);
-      dwin_write_text("FOGO");
-      dwin_read_vp_async(DWIN_VP_ICON,
-                         1,
-                         50,
-                         test_read_callback);
-      break;
-    case DWIN_BUTTON_FAULT:
-      dwin_set_icon(DWIN_ICON_FAULT);
-      dwin_write_text("FALHA");
-      dwin_read_vp_async(0x3000,
-                         1,
-                         5000,
-                         test_read_callback);
-      break;
-    case DWIN_BUTTON_DISABLE:
-      dwin_set_icon(DWIN_ICON_NORMAL);
-      dwin_write_text("ESTADO NORMAL");
-      dwin_read_vp_async(DWIN_VP_ICON,
-                         1,
-                         50,
-                         test_read_callback);
-      break;
-  }
+  dwin_set_icon(DWIN_ICON_FIRE);
+  dwin_write_text("FOGO");
+  dwin_change_brightness(50);
+  dwin_change_page(1);
 }
 
-static void test_1_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+static void fault_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
-
+  dwin_set_icon(DWIN_ICON_FAULT);
+  dwin_change_brightness(0);
 }
 
-static void test_2_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
-
+  dwin_set_icon(DWIN_ICON_NORMAL);
+  dwin_write_text("ESTADO NORMAL");
+  dwin_change_brightness(100);
+  dwin_read_vp_async(0x014,
+                     1,
+                     1000,
+                     check_page_callback);
 }
 
-static void test_3_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
-{
-
-}
-
-static void test_text_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+static void check_page_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
   if(status == SL_STATUS_TIMEOUT)
     {
@@ -167,28 +126,38 @@ static void test_text_callback(sl_status_t status, uint16_t vp, const uint8_t *d
       return;
     }
 
-  printf("\n");
   printf("\n");
   for(uint8_t i = 0; i < data_size; i++)
     {
-      printf("%c", data[i]);
+      printf("%02X", data[i]);
     }
   printf("\n");
-}
-static void test_read_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context)
-{
-  if(status == SL_STATUS_TIMEOUT)
-    {
-      printf("ERRO\r\n");
-      return;
-    }
-
-  printf("Funcionou\r\n");
 }
 
 void desativa_callback_handler(sl_zigbee_event_t *event)
 {
-  dwin_unregister_callback(DWIN_VP_BUTTON, DWIN_CMD_READ);
+//  dwin_unregister_callback(DWIN_VP_BUTTON, DWIN_CMD_READ);
+
+//  if(brightness == 100)
+//    increasing = false;
+//
+//  if(brightness == 0)
+//    increasing = true;
+//
+//  if(increasing)
+//    brightness += 10;
+//
+//  else
+//    brightness -= 10;
+//
+//  dwin_change_brightness(brightness);
+//
+//  if(page == 1)
+//    page = 0;
+//  else
+//    page = 1;
+
+  dwin_change_page(0);
 
   sl_zigbee_event_set_delay_ms(&desativa_callback, 5000);
 }
