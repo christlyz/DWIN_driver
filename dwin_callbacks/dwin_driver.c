@@ -22,8 +22,8 @@ typedef struct dwin_callback_entry
 {
   uint16_t vp;
   uint8_t instruction;
-  dwin_vp_callback_t callback;
   uint16_t expected_data;
+  dwin_vp_callback_t callback;
   struct dwin_callback_entry *next;
 } dwin_callback_entry_t;
 
@@ -75,7 +75,7 @@ static void stop_timeout();
  * Known issues:
  * Note:
  ******************************************************************************/
-sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, dwin_vp_callback_t callback)
+sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data, dwin_vp_callback_t callback)
 {
   if(callback == NULL){
       return SL_STATUS_NULL_POINTER;
@@ -89,6 +89,7 @@ sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, dwin_vp_cal
 
   new_callback->vp = vp;
   new_callback->instruction = instruction;
+  new_callback->expected_data = expected_data;
   new_callback->callback = callback;
   new_callback->next = NULL;
 
@@ -102,7 +103,8 @@ sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, dwin_vp_cal
       while(current != NULL)
        {
           if(current->vp == vp &&
-              current->instruction == instruction){
+              current->instruction == instruction &&
+              current->expected_data == expected_data){
               free(new_callback);
               return SL_STATUS_ALREADY_EXISTS;
           }
@@ -118,13 +120,14 @@ sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, dwin_vp_cal
   return SL_STATUS_OK;
 }
 
-sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction)
+sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data)
 {
   if(callbackList == NULL)
     return SL_STATUS_NOT_FOUND;
 
   if(callbackList->vp == vp &&
-      callbackList->instruction == instruction)
+      callbackList->instruction == instruction &&
+      callbackList->expected_data == expected_data)
     {
       dwin_callback_entry_t *remove_callback = callbackList;
 
@@ -138,7 +141,8 @@ sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction)
   while(current->next != NULL)
     {
       if(current->next->vp == vp &&
-          current->next->instruction == instruction)
+          current->instruction == instruction &&
+          current->next->expected_data == expected_data)
         {
           dwin_callback_entry_t *remove_callback = current->next;
           current->next = remove_callback->next;
@@ -292,6 +296,30 @@ sl_status_t dwin_read_vp(uint16_t vp, uint8_t words)
   size_t length = build_read_packet(tx, vp, words);
 
   return usart_write(tx, length);
+}
+
+sl_status_t dwin_change_brightness(uint8_t brightness)
+{
+  if(brightness > 100)
+    return SL_STATUS_INVALID_PARAMETER;
+
+  uint8_t data[1];
+
+  data[0] = brightness;
+
+  return dwin_write_vp(DWIN_VP_BRIGHTNESS, data, sizeof(data));
+}
+
+sl_status_t dwin_change_page(uint16_t page)
+{
+  uint8_t data[4];
+
+  data[0] = DWIN_PAGE_ENABLE;
+  data[1] = DWIN_PAGE_SWITCH;
+  data[2] = (uint8_t) (page >> 8);
+  data[3] = (uint8_t) page;
+
+  return dwin_write_vp(DWIN_VP_PAGE, data, sizeof(data));
 }
 
 /*
@@ -532,11 +560,14 @@ static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const ui
       return;
 
   dwin_callback_entry_t *current_callback = callbackList;
+  uint16_t received_data = bytes_to_u16(data[0], data[1]);
+
   while(current_callback != NULL)
     {
       if(current_callback->callback != NULL &&
           current_callback->vp == vp &&
-          current_callback->instruction == instruction)
+          current_callback->instruction == instruction &&
+          current_callback->expected_data == received_data)
         {
           current_callback->callback(vp, data, size, context);
           return;
