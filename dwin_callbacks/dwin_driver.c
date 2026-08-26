@@ -43,6 +43,7 @@ static sl_zigbee_event_t check_timeout_event;
 static void check_timeout_handler(sl_zigbee_event_t *event);
 
 static bool is_timeout_initialized = false;
+static dwin_config_t *dwin;
 /*******************************************************************************
  * Extern
  ******************************************************************************/
@@ -50,15 +51,19 @@ static bool is_timeout_initialized = false;
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
+static void configure_device_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void standby_handle(bool activated, uint8_t *settings);
+static void touch_sound_handle(bool activated, uint8_t *settings);
+static sl_status_t dwin_config_brightness(uint8_t default_brightness, uint8_t standby_brightness, uint16_t backlight_delay_ms);
 static bool dwin_receive_bytes(void);
 static void dwin_process_packets(void);
+static void process_packet(const uint8_t *packet, size_t packet_size);
 static void parse_read(const uint8_t *packet, size_t packet_size);
 static void parse_write(const uint8_t *packet, size_t packet_size);
 static void parse_ack(const uint8_t *packet);
 static size_t build_write_packet(uint8_t *tx, uint16_t vp, const uint8_t *data, uint8_t data_size);
 static size_t build_read_packet(uint8_t *tx, uint16_t vp, uint8_t words);
 static uint16_t bytes_to_u16(uint8_t msb, uint8_t lsb);
-static void process_packet(const uint8_t *packet, size_t packet_size);
 static void dwin_handle_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context);
 static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context);
 static void dwin_process_timeout();
@@ -75,6 +80,25 @@ static void stop_timeout();
  * Known issues:
  * Note:
  ******************************************************************************/
+/*
+ * Retorna a instância das configurações da DWIN
+ */
+dwin_config_t* dwin_get_config()
+{
+  dwin = (dwin_config_t*) malloc(sizeof(dwin_config_t));
+
+  dwin->brightness = DWIN_DEFAULT_BRIGHTNESS;
+  dwin->standby_brightness = DWIN_DEFAULT_STANDBY_BRIGHTNESS;
+  dwin->standby_timeout = DWIN_DEFAULT_STANDBY_TIMEOUT;
+  dwin->standby_brightness_activated = DWIN_DEFAULT_STANDBY_ACTIVATED;
+  dwin->touch_sound_activated = DWIN_DEFAULT_TOUCH_SOUND_ACTIVATED;
+
+  return dwin;
+}
+
+/*
+ * Registra um callback baseado no vp, instrução e dado esperado. Não é permitido criar um callback com estes mesmos parâmetros
+ */
 sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data, dwin_vp_callback_t callback)
 {
   if(callback == NULL){
@@ -120,6 +144,9 @@ sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, uint16_t ex
   return SL_STATUS_OK;
 }
 
+/*
+ * Remove um callback baseado no vp, instrução e dado esperado
+ */
 sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data)
 {
   if(callbackList == NULL)
@@ -155,6 +182,9 @@ sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t 
   return SL_STATUS_NOT_FOUND;
 }
 
+/*
+ * Registra a requisição de leitura de um VP em no máximo X tempo (tempo deve ser informado em milissegundos), ao obter uma resposta da DWIN o callback será chamado
+ */
 sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, dwin_read_callback_t callback)
 {
   if(callback == NULL)
@@ -217,6 +247,9 @@ sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, 
   return SL_STATUS_OK;
 }
 
+/*
+ * Cancela uma requisição de leitura de um VP
+ */
 sl_status_t dwin_cancel_read_vp(uint16_t vp)
 {
   if(pending_read == NULL)
@@ -298,18 +331,9 @@ sl_status_t dwin_read_vp(uint16_t vp, uint8_t words)
   return usart_write(tx, length);
 }
 
-sl_status_t dwin_change_brightness(uint8_t brightness)
-{
-  if(brightness > 100)
-    return SL_STATUS_INVALID_PARAMETER;
-
-  uint8_t data[1];
-
-  data[0] = brightness;
-
-  return dwin_write_vp(DWIN_VP_BRIGHTNESS, data, sizeof(data));
-}
-
+/*
+ * Troca a página atual da DWIN
+ */
 sl_status_t dwin_change_page(uint16_t page)
 {
   uint8_t data[4];
@@ -320,6 +344,110 @@ sl_status_t dwin_change_page(uint16_t page)
   data[3] = (uint8_t) page;
 
   return dwin_write_vp(DWIN_VP_PAGE, data, sizeof(data));
+}
+
+/*
+ * Configura a DWIN com as configurações registradas na instancia dwin_config_t
+ */
+sl_status_t dwin_configure_device()
+{
+  if(dwin == NULL)
+    return SL_STATUS_NULL_POINTER;
+
+  sl_status_t status = dwin_config_brightness(dwin->brightness, dwin->standby_brightness, dwin->standby_timeout);
+  if(status != SL_STATUS_OK)
+    return status;
+
+  status = dwin_read_vp_async(DWIN_VP_SYSTEM_CONFIG,
+                            2,
+                            5000,
+                            configure_device_callback);
+
+  return status;
+}
+
+/*
+ * Callback responsável por ativar/desativar o standby e o touch sound
+ */
+static void configure_device_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+{
+  if(status != SL_STATUS_OK)
+    return;
+
+  if(data == NULL || data_size < 4U)
+    return;
+
+  uint8_t settings = data[3];
+
+  standby_handle(dwin->standby_brightness_activated, &settings);
+  touch_sound_handle(dwin->touch_sound_activated, &settings);
+
+  uint8_t new_data[4];
+
+  new_data[0] = 0x5A;
+  new_data[1] = 0x00;
+  new_data[2] = 0x00;
+  new_data[3] = settings;
+
+  dwin_write_vp(DWIN_VP_SYSTEM_CONFIG, new_data, sizeof(new_data));
+}
+
+/*
+ * Ativa/desativa o bit de configuração do standby
+ */
+static void standby_handle(bool activated, uint8_t *settings)
+{
+  if(activated)
+    *settings |= DWIN_STANDBY_BIT_CONTROL;
+  else
+    *settings &= ~DWIN_STANDBY_BIT_CONTROL;
+}
+
+/*
+ * Ativa/desativa o bit de configuração do touch sound
+ */
+static void touch_sound_handle(bool activated, uint8_t *settings)
+{
+  if(activated)
+    *settings |= DWIN_TOUCH_SOUND_BIT_CONTROL;
+  else
+    *settings &= ~DWIN_TOUCH_SOUND_BIT_CONTROL;
+}
+
+/*
+ * Configura o brilho atual, o brilho em standby e o tempo até standby (milissegundos)
+ */
+static sl_status_t dwin_config_brightness(uint8_t default_brightness, uint8_t standby_brightness, uint16_t backlight_delay_ms)
+{
+  if(default_brightness > 100 || standby_brightness > 100)
+    return SL_STATUS_INVALID_PARAMETER;
+
+  uint16_t standby_time = backlight_delay_ms / 10;
+
+  uint8_t data[4];
+
+  data[0] = default_brightness;
+  data[1] = standby_brightness;
+  data[2] = (uint8_t) (standby_time >> 8);
+  data[3] = (uint8_t) standby_time;
+
+  return dwin_write_vp(DWIN_VP_BRIGHTNESS, data, sizeof(data));
+}
+
+/*
+ * Toca o buzzer por X milissegundos
+ */
+sl_status_t dwin_play_buzzer_ms(uint16_t milliseconds)
+{
+  if((milliseconds / 8) > 0xFF)
+    return SL_STATUS_INVALID_PARAMETER;
+
+  uint8_t data[2];
+
+  data[0] = 0x00;
+  data[1] = (uint8_t) (milliseconds / 8);
+
+  return dwin_write_vp(DWIN_VP_BUZZER, data, sizeof(data));
 }
 
 /*
@@ -532,6 +660,9 @@ static uint16_t bytes_to_u16(uint8_t msb, uint8_t lsb)
   return (((uint16_t) msb << 8) | lsb);
 }
 
+/*
+ * Recebe uma resposta da DWIN e verifica se é uma requisição de resposta ou uma resposta direta da DWIN
+ */
 static void dwin_handle_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context)
 {
   if(pending_read != NULL)
@@ -554,6 +685,9 @@ static void dwin_handle_received_vp(uint16_t vp, uint8_t instruction, const uint
   dwin_dispatch_received_vp(vp, instruction, data, size, context);
 }
 
+/*
+ * Trata a resposta como um callback não requisitado
+ */
 static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context)
 {
   if(data == NULL)
@@ -576,6 +710,9 @@ static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const ui
     }
 }
 
+/*
+ * Verifica timeout de todas as exceções
+ */
 static void dwin_process_timeout()
 {
   if(pending_read == NULL)
@@ -601,12 +738,18 @@ static void dwin_process_timeout()
     }
 }
 
+/*
+ * Callback de evento para verificar timeout de requisição
+ */
 static void check_timeout_handler(sl_zigbee_event_t *event)
 {
   dwin_process_timeout();
   sl_zigbee_event_set_delay_ms(&check_timeout_event, 100);
 }
 
+/*
+ * Verifica se o evento de timeout foi iniciado
+ */
 static void check_timeout_init()
 {
   if(is_timeout_initialized)
@@ -616,11 +759,17 @@ static void check_timeout_init()
   is_timeout_initialized = true;
 }
 
+/*
+ * Inicia o evento de timeout
+ */
 static void start_timeout()
 {
   sl_zigbee_event_set_delay_ms(&check_timeout_event, 100);
 }
 
+/*
+ * Para o evento de timeout
+ */
 static void stop_timeout()
 {
   sl_zigbee_event_set_inactive(&check_timeout_event);
