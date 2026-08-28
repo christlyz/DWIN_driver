@@ -18,16 +18,13 @@
  * Multiple include protection
  ******************************************************************************/
 
-#ifndef DWIN_DRIVER_H_
-#define DWIN_DRIVER_H_
+#ifndef DWIN_WIDGET_H_
+#define DWIN_WIDGET_H_
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include <stdint.h>
-#include <string.h>
 
-#include "usart.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -35,29 +32,30 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_HEADER_1 0x5A
-#define DWIN_HEADER_2 0xA5
 
-#define DWIN_CMD_WRITE  0x82
-#define DWIN_CMD_READ   0x83
-
-#define DWIN_MAX_PACKET_SIZE 255U
-#define DWIN_MAX_DATA_LENGTH 249U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
-typedef struct
+typedef enum
 {
-  uint8_t instruction;
-  uint16_t vp;
-  uint8_t words;
-  const uint8_t *data;
-} dwin_packet_t;
+  DWIN_VP_BUTTON = 0x1000,
+  DWIN_VP_ICON = 0x1001,
+  DWIN_VP_TEXT = 0x1002,
+  DWIN_VP_BRIGHTNESS = 0x0082,
+  DWIN_VP_PAGE = 0x0084,
+  DWIN_VP_BUZZER = 0x00A0,
+  DWIN_VP_SYSTEM_CONFIG = 0x0080
+} dwin_vp;
+
+typedef enum
+{
+  DWIN_PAGE_HOME = 0,
+  DWIN_PAGE_OUT = 1
+} dwin_page;
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_write_vp(uint16_t vp, const uint8_t *data, size_t size);
-sl_status_t dwin_read_vp(uint16_t vp, uint8_t words);
+
 /*******************************************************************************
  * End
  ******************************************************************************/
