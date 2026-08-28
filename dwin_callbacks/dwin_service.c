@@ -125,6 +125,15 @@ static void device_configuration_callback(sl_status_t status, uint16_t vp, const
   if(data == NULL || data_size < 4U)
     return;
 
+  printf("callback data: ");
+
+  for(size_t i = 0; i < data_size; i++)
+  {
+      printf("%02X ", data[i]);
+  }
+
+  printf("\r\n");
+
   uint8_t settings = data[3];
 
   standby_handle(dwin->standby_brightness_activated, &settings);
@@ -559,6 +568,15 @@ static void dwin_process_packets(void)
       if(rx_count < packet_size)
         return;
 
+      printf("PACKET (%u): ", (unsigned)packet_size);
+
+      for(size_t i = 0; i < packet_size; i++)
+      {
+          printf("%02X ", rx_buffer[i]);
+      }
+
+      printf("\r\n");
+
       process_packet(rx_buffer, packet_size);
 
       size_t remaining = rx_count - packet_size;
@@ -620,6 +638,15 @@ static void parse_read(const uint8_t *packet, size_t packet_size)
 {
   if(packet == NULL || packet_size < 7U)
     return;
+
+  printf("parse_read: ");
+
+  for(size_t i = 0; i < packet_size; i++)
+  {
+      printf("%02X ", packet[i]);
+  }
+
+  printf("\r\n");
 
   uint8_t words = packet[6];
   size_t data_size = (size_t) words * 2U;

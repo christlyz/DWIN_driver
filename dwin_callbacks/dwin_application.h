@@ -18,19 +18,16 @@
  * Multiple include protection
  ******************************************************************************/
 
-#ifndef DISPLAY_H_
-#define DISPLAY_H_
+#ifndef DWIN_APPLICATION_H_
+#define DWIN_APPLICATION_H_
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include "dwin_driver.h"
-#include <stdint.h>
-#include <sl_iostream.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "em_usart.h"
-#include "string.h"
+#include "dwin_service.h"
+#include "dwin_widget.h"
+
+#include "zigbee_app_framework_event.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -38,9 +35,6 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_VP_BUTTON 0x1000
-#define DWIN_VP_ICON 0x1001
-#define DWIN_VP_TEXT 0x1002
 #define DWIN_TEXT_SIZE 40U
 /*******************************************************************************
  * Typedef & Enums
@@ -62,9 +56,7 @@ typedef enum
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_set_icon(uint16_t icon);
-sl_status_t dwin_write_text(const char *text);
-sl_status_t dwin_clear_text();
+void application_init();
 /*******************************************************************************
  * End
  ******************************************************************************/
