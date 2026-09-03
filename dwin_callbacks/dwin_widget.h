@@ -18,19 +18,13 @@
  * Multiple include protection
  ******************************************************************************/
 
-#ifndef DISPLAY_H_
-#define DISPLAY_H_
+#ifndef DWIN_WIDGET_H_
+#define DWIN_WIDGET_H_
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include "dwin_driver.h"
-#include <stdint.h>
-#include <sl_iostream.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "em_usart.h"
-#include "string.h"
+
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -38,33 +32,34 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_VP_BUTTON 0x1000
-#define DWIN_VP_ICON 0x1001
-#define DWIN_VP_TEXT 0x1002
-#define DWIN_TEXT_SIZE 40U
+
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
 typedef enum
 {
-  DWIN_BUTTON_FIRE = 0,
-  DWIN_BUTTON_FAULT,
-  DWIN_BUTTON_DISABLE
-} dwin_button_t;
+  DWIN_VP_ACTION_BUTTON = 0x1000,
+  DWIN_VP_ICON = 0x1001,
+  DWIN_VP_TEXT_STATUS = 0x1002,
+  DWIN_VP_RETURN_BUTTON = 0x1100,
+  DWIN_VP_FIRST_TEXT = 0x2000,
+  DWIN_VP_SECOND_TEXT = 0x2100,
+  DWIN_VP_THIRD_TEXT = 0x2200,
+  DWIN_VP_BRIGHTNESS = 0x0082,
+  DWIN_VP_PAGE = 0x0084,
+  DWIN_VP_BUZZER = 0x00A0,
+  DWIN_VP_SYSTEM_CONFIG = 0x0080
+} dwin_vp;
 
 typedef enum
 {
-  DWIN_ICON_FIRE = 0,
-  DWIN_ICON_FAULT,
-  DWIN_ICON_NONE,
-  DWIN_ICON_NORMAL
-} dwin_icon_t;
+  DWIN_PAGE_HOME = 0,
+  DWIN_PAGE_TEXT = 1
+} dwin_page;
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_set_icon(uint16_t icon);
-sl_status_t dwin_write_text(const char *text);
-sl_status_t dwin_clear_text();
+
 /*******************************************************************************
  * End
  ******************************************************************************/

@@ -18,16 +18,16 @@
  * Multiple include protection
  ******************************************************************************/
 
-#ifndef DWIN_DRIVER_H_
-#define DWIN_DRIVER_H_
+#ifndef DWIN_APPLICATION_H_
+#define DWIN_APPLICATION_H_
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include <stdint.h>
-#include <string.h>
+#include "dwin_service.h"
+#include "dwin_widget.h"
 
-#include "usart.h"
+#include "zigbee_app_framework_event.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -35,29 +35,28 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_HEADER_1 0x5A
-#define DWIN_HEADER_2 0xA5
-
-#define DWIN_CMD_WRITE  0x82
-#define DWIN_CMD_READ   0x83
-
-#define DWIN_MAX_PACKET_SIZE 255U
-#define DWIN_MAX_DATA_LENGTH 249U
+#define DWIN_TEXT_SIZE 40U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
-typedef struct
+typedef enum
 {
-  uint8_t instruction;
-  uint16_t vp;
-  uint8_t words;
-  const uint8_t *data;
-} dwin_packet_t;
+  DWIN_BUTTON_FIRE = 0,
+  DWIN_BUTTON_FAULT,
+  DWIN_BUTTON_DISABLE
+} dwin_button_t;
+
+typedef enum
+{
+  DWIN_ICON_FIRE = 0,
+  DWIN_ICON_FAULT,
+  DWIN_ICON_NONE,
+  DWIN_ICON_NORMAL
+} dwin_icon_t;
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_write_vp(uint16_t vp, const uint8_t *data, size_t size);
-sl_status_t dwin_read_vp(uint16_t vp, uint8_t words);
+void application_init();
 /*******************************************************************************
  * End
  ******************************************************************************/
