@@ -18,6 +18,7 @@ typedef struct dwin_callback_entry
 {
   uint16_t vp;
   uint8_t instruction;
+  bool expect_data;
   uint16_t expected_data;
   dwin_vp_callback_t callback;
   struct dwin_callback_entry *next;
@@ -125,15 +126,6 @@ static void device_configuration_callback(sl_status_t status, uint16_t vp, const
   if(data == NULL || data_size < 4U)
     return;
 
-  printf("callback data: ");
-
-  for(size_t i = 0; i < data_size; i++)
-  {
-      printf("%02X ", data[i]);
-  }
-
-  printf("\r\n");
-
   uint8_t settings = data[3];
 
   standby_handle(dwin->standby_brightness_activated, &settings);
@@ -200,6 +192,9 @@ void dwin_poll()
   dwin_process_packets();
 }
 
+/*
+ * Troca um icone em um VP
+ */
 sl_status_t dwin_set_icon(uint16_t vp, uint16_t icon)
 {
   uint8_t data[2];
@@ -210,6 +205,9 @@ sl_status_t dwin_set_icon(uint16_t vp, uint16_t icon)
   return status;
 }
 
+/*
+ * Escreve um texto em um VP, o parametro max_text_size representa o maximo de caracteres neste VP
+ */
 sl_status_t dwin_write_text(uint16_t vp, uint8_t max_text_size, const char *text)
 {
   if(text == NULL)
@@ -226,12 +224,18 @@ sl_status_t dwin_write_text(uint16_t vp, uint8_t max_text_size, const char *text
   return status;
 }
 
+/*
+ * Registra a leitura de um VP contendo texto e envia os dados para o callback passado por parametro
+ */
 sl_status_t dwin_read_text(uint16_t vp, uint8_t expected_size, dwin_read_callback_t callback)
 {
-//  uint8_t words = (expected_size + 1U) / 2U;
-  return dwin_read_vp_async(vp, expected_size, 1000, callback);
+  uint8_t words = (expected_size + 1U) / 2U;
+  return dwin_read_vp_async(vp, words, 1000, callback);
 }
 
+/*
+ * Extrai o texto do vetor de int8 e monta uma string no parametro text
+ */
 size_t dwin_extract_text(const uint8_t *data, size_t data_size, char *text, size_t text_size)
 {
   if(data == NULL || text == NULL)
@@ -245,8 +249,8 @@ size_t dwin_extract_text(const uint8_t *data, size_t data_size, char *text, size
   for(i = 0; i < data_size && i < text_size - 1; i++)
     {
       if(i + 1 < data_size &&
-          data[i] == ' ' &&
-          data[i + 1] == ' ')
+          data[i] == 0xFF &&
+          data[i + 1] == 0xFF)
         {
           break;
         }
@@ -281,7 +285,7 @@ sl_status_t dwin_read(uint16_t vp, size_t data_size, dwin_read_callback_t callba
 /*
  * Registra um callback baseado no vp, instrução e dado esperado. Não é permitido criar um callback com estes mesmos parâmetros
  */
-sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data, dwin_vp_callback_t callback)
+sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, bool expect_data, uint16_t expected_data, dwin_vp_callback_t callback)
 {
   if(callback == NULL){
       return SL_STATUS_NULL_POINTER;
@@ -295,6 +299,7 @@ sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, uint16_t ex
 
   new_callback->vp = vp;
   new_callback->instruction = instruction;
+  new_callback->expect_data = expect_data;
   new_callback->expected_data = expected_data;
   new_callback->callback = callback;
   new_callback->next = NULL;
@@ -568,15 +573,6 @@ static void dwin_process_packets(void)
       if(rx_count < packet_size)
         return;
 
-      printf("PACKET (%u): ", (unsigned)packet_size);
-
-      for(size_t i = 0; i < packet_size; i++)
-      {
-          printf("%02X ", rx_buffer[i]);
-      }
-
-      printf("\r\n");
-
       process_packet(rx_buffer, packet_size);
 
       size_t remaining = rx_count - packet_size;
@@ -639,15 +635,6 @@ static void parse_read(const uint8_t *packet, size_t packet_size)
   if(packet == NULL || packet_size < 7U)
     return;
 
-  printf("parse_read: ");
-
-  for(size_t i = 0; i < packet_size; i++)
-  {
-      printf("%02X ", packet[i]);
-  }
-
-  printf("\r\n");
-
   uint8_t words = packet[6];
   size_t data_size = (size_t) words * 2U;
 
@@ -656,9 +643,6 @@ static void parse_read(const uint8_t *packet, size_t packet_size)
 
   uint8_t instruction = DWIN_CMD_READ;
   uint16_t vp = bytes_to_u16(packet[4], packet[5]);
-
-  if(vp == 0x3000)
-    return;
 
   dwin_handle_received_vp(vp, instruction, &packet[7], data_size, NULL);
 }
@@ -725,7 +709,7 @@ static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const ui
       if(current_callback->callback != NULL &&
           current_callback->vp == vp &&
           current_callback->instruction == instruction &&
-          current_callback->expected_data == received_data)
+          (!current_callback->expect_data || current_callback->expected_data == received_data))
         {
           current_callback->callback(vp, data, size, context);
           return;

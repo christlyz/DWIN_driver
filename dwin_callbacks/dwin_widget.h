@@ -38,9 +38,13 @@
  ******************************************************************************/
 typedef enum
 {
-  DWIN_VP_BUTTON = 0x1000,
+  DWIN_VP_ACTION_BUTTON = 0x1000,
   DWIN_VP_ICON = 0x1001,
-  DWIN_VP_TEXT = 0x1002,
+  DWIN_VP_TEXT_STATUS = 0x1002,
+  DWIN_VP_RETURN_BUTTON = 0x1100,
+  DWIN_VP_FIRST_TEXT = 0x2000,
+  DWIN_VP_SECOND_TEXT = 0x2100,
+  DWIN_VP_THIRD_TEXT = 0x2200,
   DWIN_VP_BRIGHTNESS = 0x0082,
   DWIN_VP_PAGE = 0x0084,
   DWIN_VP_BUZZER = 0x00A0,
@@ -50,7 +54,7 @@ typedef enum
 typedef enum
 {
   DWIN_PAGE_HOME = 0,
-  DWIN_PAGE_OUT = 1
+  DWIN_PAGE_TEXT = 1
 } dwin_page;
 /*******************************************************************************
  * Interface Funtions

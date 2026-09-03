@@ -88,7 +88,7 @@ sl_status_t dwin_clear_text(uint16_t vp, uint8_t text_size);
 sl_status_t dwin_write(uint16_t vp, size_t data_size, uint8_t *data);
 sl_status_t dwin_read(uint16_t vp, size_t data_size, dwin_read_callback_t callback);
 
-sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data, dwin_vp_callback_t callback);
+sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, bool expect_data, uint16_t expected_data, dwin_vp_callback_t callback);
 sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data);
 
 sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, dwin_read_callback_t callback);
