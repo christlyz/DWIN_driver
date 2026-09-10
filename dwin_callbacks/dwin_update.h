@@ -29,6 +29,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "sl_status.h"
 /*******************************************************************************
@@ -75,12 +76,21 @@ typedef enum
   DWIN_UPDATE_ERROR_RETRY
 } dwin_update_error_t;
 
+typedef enum
+{
+  DWIN_UPDATE_EXTENSION_BIN,
+  DWIN_UPDATE_EXTENSION_HZK,
+  DWIN_UPDATE_EXTENSION_ICL,
+  DWIN_UPDATE_EXTENSION_WAE,
+  DWIN_UPDATE_EXTENSION_ERROR
+} dwin_update_extension_t;
+
 typedef struct
 {
   FILE *file;
 
-  char filename[64];
-  char extension[8];
+  uint8_t id;
+  dwin_update_extension_t extension;
 
   uint32_t file_size;
   uint32_t file_offset;
@@ -103,10 +113,11 @@ typedef struct
 
   bool active;
 } dwin_update_t;
+
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_update_start(const char *filename);
+sl_status_t dwin_update_open_file(const char *filename);
 
 void dwin_update_process(void);
 

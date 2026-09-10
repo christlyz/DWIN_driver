@@ -26,10 +26,15 @@ static bool update_event_initialized = false;
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
-static bool get_extension(const char *filename, char *extension, size_t extension_size);
+static sl_status_t dwin_update_start(const char *filename, FILE *file_ptr);
+static bool dwin_update_extension_handler(const char *filename);
+static bool dwin_update_file_id_handler(const char *filename);
+static bool dwin_update_file_size_handler(sl_status_t *status);
+static void dwin_update_init_values();
+static bool get_extension(const char *filename, dwin_update_extension_t *file_extension);
 static bool get_file_size(FILE *file, uint32_t *size);
-static bool get_icl_file_id(const char *filename, uint16_t *file_id);
-static uint32_t file_id_to_flash_block(uint16_t file_id);
+static bool get_file_id(const char *filename, uint8_t *file_id);
+static uint32_t file_id_to_flash_block(uint8_t file_id);
 static sl_status_t load_next_chunk(void);
 static sl_status_t send_buffer_to_ram(void);
 static sl_status_t dwin_nor_write_block(uint16_t flash_block,
@@ -60,10 +65,25 @@ static void dwin_update_case_error(sl_status_t *status);
  * Known issues:
  * Note:
  ******************************************************************************/
-sl_status_t dwin_update_start(const char *filename)
+sl_status_t dwin_update_open_file(const char *filename)
 {
-  uint16_t file_id;
+  /*
+   * Ainda é necessário definir como o arquivo chegará aqui,
+   * mas a ideia é passar o arquivo aberto e o seu nome para ser tratado em diante
+   * e montar a struct de update que nao irá guardar o nome do arquivo e nem a extensão como string
+   */
+  FILE *file_ptr;
 
+  if(filename == NULL)
+    return SL_STATUS_INVALID_PARAMETER;
+
+  file_ptr = fopen(filename, "rb");
+
+  return dwin_update_start(filename, file_ptr);
+}
+
+static sl_status_t dwin_update_start(const char *filename, FILE *file_ptr)
+{
   if(filename == NULL)
     return SL_STATUS_INVALID_PARAMETER;
 
@@ -72,51 +92,63 @@ sl_status_t dwin_update_start(const char *filename)
 
   memset(&update, 0, sizeof(update));
 
-  strncpy(update.filename,
-          filename,
-          sizeof(update.filename) - 1U);
+  update.file = file_ptr;
 
-  update.filename[sizeof(update.filename) - 1U] = '\0';
-
-  if(!get_extension(filename,
-                    update.extension,
-                    sizeof(update.extension)))
-    {
-      update.error = DWIN_UPDATE_ERROR_UNSUPPORTED_FILE;
-      return SL_STATUS_INVALID_PARAMETER;
-    }
-
-  if(strcmp(update.extension, "ICL") != 0 &&
-      strcmp(update.extension, "icl") != 0)
-    {
-      update.error = DWIN_UPDATE_ERROR_UNSUPPORTED_FILE;
-      return SL_STATUS_NOT_SUPPORTED;
-    }
-
-  update.file = fopen(filename, "rb");
-
-  if(update.file == NULL)
+  if(file_ptr == NULL)
     {
       update.error = DWIN_UPDATE_ERROR_FILE_OPEN;
       return SL_STATUS_FAIL;
     }
 
+  if(!dwin_update_extension_handler(filename))
+    {
+      return SL_STATUS_INVALID_PARAMETER;
+    }
+
+  sl_status_t status;
+
+  if(!dwin_update_file_size_handler(&status))
+    {
+      return status;
+    }
+
+  if(!dwin_update_file_id_handler(filename))
+    {
+      return SL_STATUS_INVALID_PARAMETER;
+    }
+
+  dwin_update_init_values();
+
+  init_update_event();
+
+  sl_zigbee_event_set_delay_ms(&dwin_update_event, 0U);
+
+  return SL_STATUS_OK;
+}
+
+static bool dwin_update_extension_handler(const char *filename)
+{
+  if(!get_extension(filename, &update.extension))
+    {
+      fclose(update.file);
+      update.file = NULL;
+
+      update.error = DWIN_UPDATE_ERROR_UNSUPPORTED_FILE;
+      return false;
+    }
+  return true;
+}
+
+static bool dwin_update_file_size_handler(sl_status_t *status)
+{
   if(!get_file_size(update.file, &update.file_size))
     {
       fclose(update.file);
       update.file = NULL;
 
       update.error = DWIN_UPDATE_ERROR_FILE_SIZE;
-      return SL_STATUS_FAIL;
-    }
-
-  if(!get_icl_file_id(filename, &file_id))
-    {
-      fclose(update.file);
-      update.file = NULL;
-
-      update.error = DWIN_UPDATE_ERROR_INVALID_FILE;
-      return SL_STATUS_INVALID_PARAMETER;
+      *status = SL_STATUS_FAIL;
+      return false;
     }
 
   if(update.file_size == 0U || (update.file_size & 1U) != 0U)
@@ -126,10 +158,33 @@ sl_status_t dwin_update_start(const char *filename)
 
       update.error = DWIN_UPDATE_ERROR_FILE_SIZE;
 
-      return SL_STATUS_INVALID_PARAMETER;
+      *status = SL_STATUS_INVALID_PARAMETER;
+      return false;
     }
 
-  update.current_block = file_id_to_flash_block(file_id);
+  return true;
+}
+
+static bool dwin_update_file_id_handler(const char *filename)
+{
+  if(!get_file_id(filename, &update.id))
+    {
+      /*
+       * Implementar que se não tiver um ID, verificar se não é um arquivo DWIN_OS
+       */
+      fclose(update.file);
+      update.file = NULL;
+
+      update.error = DWIN_UPDATE_ERROR_INVALID_FILE;
+      return false;
+    }
+  return true;
+}
+
+static void dwin_update_init_values()
+{
+  update.current_block = file_id_to_flash_block(update.id);
+
 
   update.total_blocks =
       (update.file_size +
@@ -141,42 +196,65 @@ sl_status_t dwin_update_start(const char *filename)
   update.ram_address = DWIN_UPDATE_RAM_START;
   update.retry_count = 0U;
 
+  uint32_t remaining = update.file_size - update.file_offset;
+
+  if(remaining >= DWIN_UPDATE_FLASH_BLOCK_SIZE)
+    {
+      update.current_block_size = DWIN_UPDATE_FLASH_BLOCK_SIZE;
+    }
+  else
+    {
+      update.current_block_size = remaining;
+    }
+
   update.active = true;
   update.state = DWIN_UPDATE_LOAD_BLOCK;
   update.error = DWIN_UPDATE_ERROR_NONE;
-
-  init_update_event();
-
-  sl_zigbee_event_set_delay_ms(&dwin_update_event, 0U);
-
-  return SL_STATUS_OK;
 }
 
-static bool get_extension(const char *filename, char *extension, size_t extension_size)
+static bool get_extension(const char *filename, dwin_update_extension_t *file_extension)
 {
-  const char *dot;
+  const char *extension;
 
-  if(filename == NULL ||
-      extension == NULL ||
-      extension_size == 0U)
+  if(filename == NULL)
     {
       return false;
     }
 
-  dot = strrchr(filename, '.');
+  extension = strrchr(filename, '.');
 
-  if(dot == NULL)
+  if(extension == NULL)
     {
-      extension[0] = '\0';
       return false;
     }
 
-  dot++;
+  extension++;
 
-  if(strlen(dot) >= extension_size)
-    return false;
-
-  strcpy(extension, dot);
+  if(strcmp(extension, "ICL") == 0 || strcmp(extension, "icl") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_ICL;
+      return true;
+    }
+  else if(strcmp(extension, "BIN") == 0 || strcmp(extension, "bin") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_BIN;
+      return true;
+    }
+  else if(strcmp(extension, "HZK") == 0 || strcmp(extension, "hzk") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_HZK;
+      return true;
+    }
+  else if(strcmp(extension, "WAE") == 0 || strcmp(extension, "wae") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_WAE;
+      return true;
+    }
+  else
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_ERROR;
+      return false;
+    }
 
   return true;
 }
@@ -213,38 +291,49 @@ static bool get_file_size(FILE *file, uint32_t *size)
   return true;
 }
 
-static bool get_icl_file_id(const char *filename, uint16_t *file_id)
+static bool get_file_id(const char *filename, uint8_t *file_id)
 {
-  char name[64];
-  char *dot;
-  char *end;
-  unsigned long value;
+  uint32_t value = 0U;
+  size_t i = 0U;
 
   if(filename == NULL || file_id == NULL)
     return false;
 
-  strncpy(name, filename, sizeof(name) - 1U);
-  name[sizeof(name) - 1U] = '\0';
-
-  dot = strrchr(name, '.');
-
-  if(dot != NULL)
-    *dot = '\0';
-
-  value = strtoul(name, &end, 10);
-
-  if(end == name || *end != '\0')
+  /*
+   * O primeiro caractere precisa ser um número
+   */
+  if(!isdigit((unsigned char)filename[0]))
     return false;
 
-  if(value > 0xFFFFU)
-    return false;
+  /*
+   * Lê todos os dígitos no início do nome
+   */
+  while (isdigit((unsigned char)filename[i]))
+  {
+      value = (value * 10U) +
+              (uint32_t)(filename[i] - '0');
 
-  *file_id = (uint16_t)value;
+      if (value > UINT8_MAX)
+          return false;
+
+      i++;
+  }
+
+  /*
+   * É válido parar em:
+   * '.'  -> extensão
+   * '_'  -> nome opcional
+   * letra -> nome opcional
+   *
+   * Portanto não precisa validar o restante.
+   */
+
+  *file_id = (uint8_t)value;
 
   return true;
 }
 
-static uint32_t file_id_to_flash_block(uint16_t file_id)
+static uint32_t file_id_to_flash_block(uint8_t file_id)
 {
   return (uint32_t)file_id * 8U;
 }
@@ -391,8 +480,7 @@ static void init_update_event(void)
   if(update_event_initialized)
     return;
 
-  sl_zigbee_event_init(&dwin_update_event,
-                       update_event_handler);
+  sl_zigbee_event_init(&dwin_update_event, update_event_handler);
 
   update_event_initialized = true;
 }
