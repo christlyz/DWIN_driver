@@ -41,10 +41,19 @@
  ******************************************************************************/
 #define DWIN_UPDATE_BUFFER_SIZE 480U
 #define DWIN_UPDATE_PACKET_SIZE 240U
-#define DWIN_UPDATE_FLASH_BLOCK_SIZE (32U * 1024)
+#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06 (28U * 1024)
+#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA (32U * 1024)
+
+#define DWIN_UPDATE_FILE_ID_SIZE (256U * 1024U)
+#define DWIN_UPDATE_BLOCKS_PER_FILE_ID_0XAA \
+        (DWIN_UPDATE_FILE_ID_SIZE / DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA)
 
 #define DWIN_UPDATE_RAM_START         0x8000U
 #define DWIN_UPDATE_VP_EXTERNAL_FLASH 0x00AAU
+
+#define DWIN_UPDATE_FLASH_STATUS_TIMEOUT_MS 1000U
+
+#define DWIN_UPDATE_FILL_VALUE  0x00U
 
 #define DWIN_UPDATE_MAX_RETRIES 3U
 /*******************************************************************************
@@ -52,14 +61,15 @@
  ******************************************************************************/
 typedef enum
 {
-  DWIN_UPDATE_IDLE,
-  DWIN_UPDATE_LOAD_BLOCK,
-  DWIN_UPDATE_WRITE_RAM,
-  DWIN_UPDATE_FLASH_WRITE,
-  DWIN_UPDATE_WAIT_FLASH,
-  DWIN_UPDATE_NEXT_BLOCK,
-  DWIN_UPDATE_FINISH,
-  DWIN_UPDATE_ERROR
+  DWIN_UPDATE_STATE_IDLE,
+  DWIN_UPDATE_STATE_LOAD_BLOCK,
+  DWIN_UPDATE_STATE_WRITE_RAM,
+  DWIN_UPDATE_STATE_FILL_BLOCK,
+  DWIN_UPDATE_STATE_FLASH_WRITE,
+  DWIN_UPDATE_STATE_WAIT_FLASH,
+  DWIN_UPDATE_STATE_NEXT_BLOCK,
+  DWIN_UPDATE_STATE_FINISH,
+  DWIN_UPDATE_STATE_ERROR
 } dwin_update_state_t;
 
 typedef enum
@@ -70,6 +80,7 @@ typedef enum
   DWIN_UPDATE_ERROR_INVALID_FILE,
   DWIN_UPDATE_ERROR_UNSUPPORTED_FILE,
   DWIN_UPDATE_ERROR_FILE_SIZE,
+  DWIN_UPDATE_ERROR_FILE_EMPTY,
   DWIN_UPDATE_ERROR_DWIN_WRITE,
   DWIN_UPDATE_ERROR_DWIN_STATUS,
   DWIN_UPDATE_ERROR_TIMEOUT,
@@ -85,16 +96,25 @@ typedef enum
   DWIN_UPDATE_EXTENSION_ERROR
 } dwin_update_extension_t;
 
+typedef enum
+{
+  DWIN_UPDATE_METHOD_INVALID,
+  DWIN_UPDATE_METHOD_0xAA,
+  DWIN_UPDATE_METHOD_0x06
+} dwin_update_method_t;
+
 typedef struct
 {
   FILE *file;
 
   uint8_t id;
   dwin_update_extension_t extension;
+  dwin_update_method_t method;
 
   uint32_t file_size;
   uint32_t file_offset;
 
+  uint32_t file_id_base_block;
   uint32_t total_blocks;
   uint32_t current_block;
 
@@ -105,6 +125,8 @@ typedef struct
 
   uint8_t buffer[DWIN_UPDATE_BUFFER_SIZE];
   size_t buffer_size;
+
+  bool flash_status_pending;
 
   uint8_t retry_count;
 
