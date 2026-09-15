@@ -24,12 +24,12 @@ dwin_config_t *my_dwin;
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
-
 static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void fault_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void return_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void input_text_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 /*******************************************************************************
  * Function name:
  *
@@ -98,9 +98,9 @@ void application_init()
   dwin_register_callback(
       DWIN_VP_THIRD_TEXT,
       DWIN_CMD_READ,
-      false,
-      0,
-      input_text_callback);
+      true,
+      0x4F4B,
+      update_callback);
 
 //  dwin_play_buzzer_ms(250);
 }
@@ -150,5 +150,11 @@ static void input_text_callback(uint16_t vp, const uint8_t *data, size_t data_si
 
 void change_page_handler(sl_zigbee_event_t *event)
 {
+  printf("Atualização começou...\r\n");
   dwin_change_page(DWIN_PAGE_HOME);
+}
+
+static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+{
+  start_update();
 }

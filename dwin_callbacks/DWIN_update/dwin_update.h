@@ -32,6 +32,7 @@
 #include <ctype.h>
 
 #include "sl_status.h"
+#include "dwin_file.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -42,20 +43,15 @@
 #define DWIN_UPDATE_BUFFER_SIZE 480U
 #define DWIN_UPDATE_PACKET_SIZE 240U
 #define DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06 (28U * 1024)
-#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA (32U * 1024)
-
-#define DWIN_UPDATE_FILE_ID_SIZE (256U * 1024U)
-#define DWIN_UPDATE_BLOCKS_PER_FILE_ID_0XAA \
-        (DWIN_UPDATE_FILE_ID_SIZE / DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA)
 
 #define DWIN_UPDATE_RAM_START         0x8000U
-#define DWIN_UPDATE_VP_EXTERNAL_FLASH 0x00AAU
-
-#define DWIN_UPDATE_FLASH_STATUS_TIMEOUT_MS 1000U
 
 #define DWIN_UPDATE_FILL_VALUE  0x00U
 
 #define DWIN_UPDATE_MAX_RETRIES 3U
+
+#define DWIN_TEST_RAM_SIZE (32U * 1024U)
+#define DWIN_TEST_FLASH_SIZE (32 * 1024U)
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
@@ -89,6 +85,13 @@ typedef enum
 
 typedef enum
 {
+  DWIN_UPDATE_METHOD_INVALID,
+  DWIN_UPDATE_METHOD_0xAA,
+  DWIN_UPDATE_METHOD_0x06
+} dwin_update_method_t;
+
+typedef enum
+{
   DWIN_UPDATE_EXTENSION_BIN,
   DWIN_UPDATE_EXTENSION_HZK,
   DWIN_UPDATE_EXTENSION_ICL,
@@ -96,16 +99,9 @@ typedef enum
   DWIN_UPDATE_EXTENSION_ERROR
 } dwin_update_extension_t;
 
-typedef enum
-{
-  DWIN_UPDATE_METHOD_INVALID,
-  DWIN_UPDATE_METHOD_0xAA,
-  DWIN_UPDATE_METHOD_0x06
-} dwin_update_method_t;
-
 typedef struct
 {
-  FILE *file;
+  dwin_update_file_t *file;
 
   uint8_t id;
   dwin_update_extension_t extension;
@@ -141,18 +137,14 @@ typedef struct
  ******************************************************************************/
 sl_status_t dwin_update_open_file(const char *filename);
 
+sl_status_t dwin_update_start(dwin_update_file_t *file);
+
 void dwin_update_process(void);
 
 bool dwin_update_is_active(void);
 
 dwin_update_state_t dwin_update_get_state(void);
 
-dwin_update_error_t dwin_update_get_error(void);
-
-void dwin_update_process(void);
-
-bool dwin_update_is_active(void);
-dwin_update_state_t dwin_update_get_state(void);
 dwin_update_error_t dwin_update_get_error(void);
 /*******************************************************************************
  * End

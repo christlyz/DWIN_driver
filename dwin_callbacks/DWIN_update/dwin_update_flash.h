@@ -18,16 +18,17 @@
  * Multiple include protection
  ******************************************************************************/
 
-#ifndef DWIN_APPLICATION_H_
-#define DWIN_APPLICATION_H_
+#ifndef DWIN_UPDATE_FLASH_H_
+#define DWIN_UPDATE_FLASH_H_
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include "dwin_service.h"
-#include "dwin_widget.h"
-
-#include "zigbee_app_framework_event.h"
+#include <stdint.h>
+#include <stddef.h>
+#include "sl_status.h"
+#include "dwin_update.h"
+#include "../DWIN_functions/dwin_service.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -35,28 +36,22 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_TEXT_SIZE 40U
+
+
+
+#define DWIN_UPDATE_VP_EXTERNAL_FLASH 0x00AAU
+
+#define DWIN_UPDATE_FLASH_STATUS_TIMEOUT_MS 1000U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
-typedef enum
-{
-  DWIN_BUTTON_FIRE = 0,
-  DWIN_BUTTON_FAULT,
-  DWIN_BUTTON_DISABLE
-} dwin_button_t;
 
-typedef enum
-{
-  DWIN_ICON_FIRE = 0,
-  DWIN_ICON_FAULT,
-  DWIN_ICON_NONE,
-  DWIN_ICON_NORMAL
-} dwin_icon_t;
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-void application_init();
+sl_status_t dwin_update_flash_write_block(uint16_t flash_block, uint16_t ram_address, uint16_t delay_ms);
+
+sl_status_t dwin_update_flash_request_status(void);
 /*******************************************************************************
  * End
  ******************************************************************************/

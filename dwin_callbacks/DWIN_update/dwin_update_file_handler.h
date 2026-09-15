@@ -18,16 +18,17 @@
  * Multiple include protection
  ******************************************************************************/
 
-#ifndef DWIN_DRIVER_H_
-#define DWIN_DRIVER_H_
+#ifndef DWIN_UPDATE_FILE_HANDLER_H_
+#define DWIN_UPDATE_FILE_HANDLER_H_
 
 /*******************************************************************************
  * Includes
  ******************************************************************************/
 #include <stdint.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stdio.h>
 
-#include "usart.h"
+#include "dwin_update.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -35,29 +36,29 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_HEADER_1 0x5A
-#define DWIN_HEADER_2 0xA5
+#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA (32U * 1024)
 
-#define DWIN_CMD_WRITE  0x82
-#define DWIN_CMD_READ   0x83
+#define DWIN_UPDATE_BLOCKS_PER_FILE_ID_0XAA \
+        (DWIN_UPDATE_FILE_ID_SIZE / DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA)
 
-#define DWIN_MAX_PACKET_SIZE 255U
-#define DWIN_MAX_DATA_LENGTH 249U
+#define DWIN_UPDATE_FILE_ID_SIZE (256U * 1024U)
+
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
-typedef struct
-{
-  uint8_t instruction;
-  uint16_t vp;
-  uint8_t words;
-  const uint8_t *data;
-} dwin_packet_t;
+
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_write_vp(uint16_t vp, const uint8_t *data, size_t size);
-sl_status_t dwin_read_vp(uint16_t vp, uint8_t words);
+bool dwin_update_extension_handler(dwin_update_t *update);
+
+bool dwin_update_identify_file_handler(dwin_update_t *update);
+
+bool dwin_update_file_size_handler(sl_status_t *status, dwin_update_t *update);
+
+bool dwin_update_validate_file_id_range(dwin_update_t *update);
+
+void dwin_update_init_values(dwin_update_t *update);
 /*******************************************************************************
  * End
  ******************************************************************************/

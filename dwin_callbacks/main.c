@@ -32,7 +32,7 @@
 #define main nodeMain
 #endif
 
-#include "dwin_application.h"
+#include "../DWIN_functions/dwin_application.h"
 
 void app_init(void)
 {
