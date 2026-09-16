@@ -114,7 +114,7 @@ static void flash_status_callback(sl_status_t status,
   if(data[0] == 0x00 &&
       data[1] == 0x02)
     {
-      update.state = DWIN_UPDATE_STATE_NEXT_BLOCK;
+      update.state = DWIN_UPDATE_STATE_VERIFY_BLOCK;
       return;
     }
 

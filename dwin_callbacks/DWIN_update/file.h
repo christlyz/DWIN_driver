@@ -27,7 +27,8 @@
 #include "sl_status.h"
 #include "dwin_update.h"
 #include "dwin_file.h"
-#include "../Files/13TouchFile.h"
+//#include "../Files/13TouchFile.h"
+#include "../Files/60.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/

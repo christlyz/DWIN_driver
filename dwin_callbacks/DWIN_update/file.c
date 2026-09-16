@@ -34,6 +34,6 @@
  ******************************************************************************/
 sl_status_t start_update()
 {
-  dwin_update_file_t *update_file = get_file_13();
+  dwin_update_file_t *update_file = get_file_60();
   return dwin_update_start(update_file);
 }

@@ -47,6 +47,7 @@ static void dwin_update_case_fill_block(sl_status_t *status);
 static void dwin_update_case_write_ram(sl_status_t *status);
 static void dwin_update_case_flash_write(sl_status_t *status);
 static void dwin_update_case_wait_flash(sl_status_t *status);
+static void dwin_update_case_verify_block(sl_status_t *status);
 static void dwin_update_case_next_block(sl_status_t *status);
 static void dwin_update_case_update_finish(sl_status_t *status);
 static void dwin_update_case_error(sl_status_t *status);
@@ -54,6 +55,7 @@ static void dwin_update_case_error(sl_status_t *status);
 static sl_status_t dwin_test_write_ram(uint16_t ram_address, size_t size, const uint8_t *data);
 static sl_status_t dwin_test_flash_write_block(uint16_t flash_block, uint16_t ram_address, uint16_t delay_ms);
 static bool dwin_test_verify_flash(const dwin_update_file_t *file);
+static bool dwin_test_verify_flash_block(uint32_t block_index);
 static void dwin_update_debug_print(void);
 /*******************************************************************************
  * Function name:
@@ -389,12 +391,11 @@ void dwin_update_process(void)
       dwin_update_case_wait_flash(&status);
       break;
 
+    case DWIN_UPDATE_STATE_VERIFY_BLOCK:
+      dwin_update_case_verify_block(&status);
+      break;
     case DWIN_UPDATE_STATE_NEXT_BLOCK:
       dwin_update_case_next_block(&status);
-      printf("Current block: %lu / %lu\r\n",
-             (unsigned long)update.current_block,
-             (unsigned long)(update.file_id_base_block +
-                             update.total_blocks - 1U));
       break;
 
     case DWIN_UPDATE_STATE_FINISH:
@@ -576,6 +577,33 @@ static void dwin_update_case_wait_flash(sl_status_t *status)
   update.flash_status_pending = true;
 }
 
+static void dwin_update_case_verify_block(sl_status_t *status)
+{
+  uint32_t block_index;
+
+  (void)status;
+
+  block_index = update.current_block - update.file_id_base_block;
+
+  if(!dwin_test_verify_flash_block(block_index))
+    {
+      printf("Erro no bloco %lu, atualização falhou!\r\n", (unsigned long) block_index);
+      update.error = DWIN_UPDATE_ERROR_FLASH_WRITE;
+      update.state = DWIN_UPDATE_STATE_ERROR;
+      return;
+    }
+
+  printf("Current block: %lu / %lu\r\n",
+         (unsigned long)update.current_block,
+         (unsigned long)(update.file_id_base_block +
+                         update.total_blocks - 1U));
+
+  printf("Bloco %lu verificado com sucesso\r\n", (unsigned long) block_index);
+
+
+  update.state = DWIN_UPDATE_STATE_NEXT_BLOCK;
+}
+
 static void dwin_update_case_next_block(sl_status_t *status)
 {
   uint32_t blocks_completed;
@@ -618,15 +646,7 @@ static void dwin_update_case_update_finish(sl_status_t *status)
       dwin_update_file_close(update.file);
     }
 
-  if(dwin_test_verify_flash(update.file))
-    {
-      printf("Atualização ocorreu com sucesso\r\n");
-    }
-  else
-    {
-      printf("Atualização falhou\r\n");
-    }
-
+  printf("Atualização concluída com sucesso!\r\n");
   update.active = false;
 
   return;
@@ -693,6 +713,7 @@ static sl_status_t dwin_test_flash_write_block(uint16_t flash_block, uint16_t ra
 {
   uint32_t ram_offset;
 
+  (void)flash_block;
   (void)delay_ms;
 
   if(ram_address < DWIN_UPDATE_RAM_START)
@@ -706,13 +727,6 @@ static sl_status_t dwin_test_flash_write_block(uint16_t flash_block, uint16_t ra
     {
       return SL_STATUS_WOULD_OVERFLOW;
     }
-
-//  flash_offset = (uint32_t)flash_block * DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
-//
-//  if(flash_offset + DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA > DWIN_TEST_FLASH_SIZE)
-//    {
-//      return SL_STATUS_WOULD_OVERFLOW;
-//    }
 
   memcpy(&dwin_test_flash, &dwin_test_ram[ram_offset], DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA);
 
@@ -746,7 +760,7 @@ static bool dwin_test_verify_flash(const dwin_update_file_t *file)
    * Verifica o preenchimento.
    */
   uint16_t counter = 0;
-  for(i = file->size + 1; i < DWIN_TEST_FLASH_SIZE; i++)
+  for(i = file->size; i < DWIN_TEST_FLASH_SIZE; i++)
     {
       if(dwin_test_flash[i] != DWIN_UPDATE_FILL_VALUE)
         {
@@ -754,6 +768,41 @@ static bool dwin_test_verify_flash(const dwin_update_file_t *file)
           return false;
         }
       counter++;
+    }
+
+  return true;
+}
+
+static bool dwin_test_verify_flash_block(uint32_t block_index)
+{
+  uint32_t expected_offset;
+  size_t i;
+  uint8_t expected_value;
+
+  expected_offset = block_index * DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
+
+  for(i = 0U; i < DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA; i++)
+    {
+      /*
+       * Ainda existe conteúdo real do arquivo.
+       */
+      if((expected_offset + i) < update.file_size)
+        {
+          expected_value = update.file->data[expected_offset + i];
+        }
+      else
+        {
+          /*
+           * O arquivo terminou.
+           * O restante deve ser 0x00.
+           */
+          expected_value = DWIN_UPDATE_FILL_VALUE;
+        }
+      if(dwin_test_flash[i] != expected_value)
+        {
+          printf("ERRO BLOCO %lu - offset %lu - esperado 0x%02X - recebido 0x%02X\r\n", (unsigned long)block_index, (unsigned long)(expected_offset + i), expected_value, dwin_test_flash[i]);
+          return false;
+        }
     }
 
   return true;
@@ -811,7 +860,7 @@ static void dwin_update_debug_print(void)
 
   printf("Total blocks: %lu\r\n", (unsigned long)update.total_blocks);
 
-  printf("File ID base block: %lu (0x%041X)\r\n",
+  printf("File ID base block: %lu (0x%04lX)\r\n",
          (unsigned long)update.file_id_base_block,
          (unsigned long)update.file_id_base_block);
 
