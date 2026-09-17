@@ -40,6 +40,7 @@ sl_status_t start_update()
 //    case DWIN_13TOUCHFILE:
 //      file = get_file_13();
 //      current_file = DWIN_14SHOWFILE;
+//      status = SL_STATUS_IS_WAITING;
 //      break;
     case DWIN_14SHOWFILE:
       file = get_file_14();
@@ -47,6 +48,7 @@ sl_status_t start_update()
       if(status == SL_STATUS_OK)
         {
           current_file = DWIN_22_CONFIG;
+          status = SL_STATUS_IS_WAITING;
         }
       break;
     case DWIN_22_CONFIG:
@@ -55,6 +57,7 @@ sl_status_t start_update()
       if(status == SL_STATUS_OK)
         {
           current_file = DWIN_59;
+          status = SL_STATUS_IS_WAITING;
         }
       break;
     case DWIN_59:
@@ -62,21 +65,24 @@ sl_status_t start_update()
       status = dwin_update_start(file);
       if(status == SL_STATUS_OK)
         {
-          current_file = DWIN_62;
+          current_file = DWIN_63;
+          status = SL_STATUS_IS_WAITING;
         }
       break;
 //    case DWIN_60:
 //      file = get_file_60();
 //      current_file = DWIN_62;
+//      status = SL_STATUS_IS_WAITING;
 //      break;
-    case DWIN_62:
-      file = get_file_62();
-      status = dwin_update_start(file);
-      if(status == SL_STATUS_OK)
-        {
-          current_file = DWIN_63;
-        }
-      break;
+//    case DWIN_62:
+//      file = get_file_62();
+//      status = dwin_update_start(file);
+//      if(status == SL_STATUS_OK)
+//        {
+//          current_file = DWIN_63;
+//          status = SL_STATUS_IS_WAITING;
+//        }
+//      break;
     case DWIN_63:
       file = get_file_63();
       status = dwin_update_start(file);

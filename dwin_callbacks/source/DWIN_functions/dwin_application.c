@@ -156,5 +156,9 @@ void change_page_handler(sl_zigbee_event_t *event)
 
 static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
-  start_update();
+  sl_status_t status = SL_STATUS_IS_WAITING;
+  while(status != SL_STATUS_OK)
+    {
+      start_update();
+    }
 }

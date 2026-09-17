@@ -37,7 +37,7 @@ sl_status_t usart_write(uint8_t *tx, size_t length)
   if(tx == NULL || length == 0U)
     return SL_STATUS_NULL_POINTER;
 
-  return sl_iostream_write(sl_iostream_inst_handle, tx, length);
+  return sl_iostream_write(sl_iostream_dwin_handle, tx, length);
 }
 
 sl_status_t usart_read(uint8_t *rx, size_t length, size_t *received)
@@ -47,5 +47,5 @@ sl_status_t usart_read(uint8_t *rx, size_t length, size_t *received)
 
   *received = 0U;
 
-  return sl_iostream_read(sl_iostream_inst_handle, rx, length, received);
+  return sl_iostream_read(sl_iostream_dwin_handle, rx, length, received);
 }
