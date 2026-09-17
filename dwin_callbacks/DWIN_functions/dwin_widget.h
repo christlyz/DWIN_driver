@@ -48,13 +48,15 @@ typedef enum
   DWIN_VP_BRIGHTNESS = 0x0082,
   DWIN_VP_PAGE = 0x0084,
   DWIN_VP_BUZZER = 0x00A0,
-  DWIN_VP_SYSTEM_CONFIG = 0x0080
+  DWIN_VP_SYSTEM_CONFIG = 0x0080,
+  DWIN_VP_BUTTON_RETRY = 0x4000
 } dwin_vp;
 
 typedef enum
 {
   DWIN_PAGE_HOME = 0,
-  DWIN_PAGE_TEXT = 1
+  DWIN_PAGE_TEXT = 1,
+  DWIN_PAGE_RETRY_UPDATE = 10
 } dwin_page;
 /*******************************************************************************
  * Interface Funtions

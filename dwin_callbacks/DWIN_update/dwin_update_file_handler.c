@@ -116,9 +116,11 @@ void dwin_update_init_values(dwin_update_t *update)
 {
   update->file_offset = 0U;
   update->block_offset = 0U;
+  update->block_file_offset = 0U;
   update->buffer_size = 0U;
   update->ram_address = DWIN_UPDATE_RAM_START;
   update->retry_count = 0U;
+  update->progress = 0U;
   update->flash_status_pending = false;
 
   if(update->method == DWIN_UPDATE_METHOD_0xAA)
@@ -130,7 +132,6 @@ void dwin_update_init_values(dwin_update_t *update)
        * Quantidade total de blocos físicos necessários, incluindo o preenchimento do último ID.
        */
       update->total_blocks = dwin_update_calculate_total_blocks(update);
-//      update->total_blocks = 1U;
       update->current_block_size = DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
     }
   else

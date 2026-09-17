@@ -33,6 +33,8 @@
 
 #include "sl_status.h"
 #include "dwin_file.h"
+#include "../DWIN_functions/dwin_service.h"
+#include "../DWIN_functions/dwin_widget.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -119,6 +121,7 @@ typedef struct
 
   uint32_t block_offset;
   uint32_t current_block_size;
+  uint32_t block_file_offset;
 
   uint16_t ram_address;
 
@@ -128,6 +131,8 @@ typedef struct
   bool flash_status_pending;
 
   uint8_t retry_count;
+
+  uint8_t progress;
 
   dwin_update_state_t state;
   dwin_update_error_t error;
@@ -149,6 +154,8 @@ bool dwin_update_is_active(void);
 dwin_update_state_t dwin_update_get_state(void);
 
 dwin_update_error_t dwin_update_get_error(void);
+
+uint8_t dwin_update_get_progress(void);
 /*******************************************************************************
  * End
  ******************************************************************************/
