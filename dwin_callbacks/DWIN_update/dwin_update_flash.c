@@ -59,8 +59,8 @@ sl_status_t dwin_update_flash_write_block(uint16_t flash_block, uint16_t ram_add
 
   return dwin_write(
       DWIN_UPDATE_VP_EXTERNAL_FLASH,
-      sizeof(data),
-      data);
+      data,
+      sizeof(data));
 }
 
 sl_status_t dwin_update_flash_request_status(void)

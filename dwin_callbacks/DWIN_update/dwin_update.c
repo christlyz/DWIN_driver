@@ -34,6 +34,7 @@ static uint8_t dwin_test_flash[DWIN_TEST_FLASH_SIZE];
  ******************************************************************************/
 static sl_status_t load_next_chunk(void);
 static sl_status_t send_buffer_to_ram(void);
+static void dwin_update_ram_write_ack_callback(sl_status_t status, uint16_t vp, void *context);
 static sl_status_t dwin_update_write_ram_packet(uint16_t ram_address, size_t packet_size, const uint8_t *data);
 static sl_status_t fill_ram_with_zero(void);
 static uint32_t dwin_update_get_block_size(void);
@@ -43,9 +44,10 @@ static sl_status_t dwin_test_flash_write_block(uint16_t flash_block, uint16_t ra
 static sl_status_t dwin_os_update_block(uint16_t flash_block,
                                         uint16_t ram_address,
                                         uint16_t delay_ms);
-
 static void init_update_event(void);
 static void update_event_handler(sl_zigbee_event_t *event);
+static void dwin_update_case_enable_crc(sl_status_t *status);
+static void dwin_update_case_wait_crc_enables(sl_status_t *status);
 static void dwin_update_case_load_block(sl_status_t *status);
 static void dwin_update_case_fill_block(sl_status_t *status);
 static void dwin_update_case_write_ram(sl_status_t *status);
@@ -146,7 +148,7 @@ static sl_status_t load_next_chunk(void)
   uint32_t block_remaining;
 
   update.buffer_size = 0U;
-
+  update.buffer_offset = 0U;
   /*
    * O bloco atual já está completo
    */
@@ -187,6 +189,26 @@ static sl_status_t load_next_chunk(void)
         }
 
       /*
+       * Os dados da DWIN precisam ser enviados em words.
+       */
+      if((bytes_to_process & 1U) != 0U)
+        {
+          bytes_to_process--;
+        }
+
+      /*
+       * Caso o tamanho calculado tenha ficado zero,
+       * há uma inconsistencia no tamanho do arquivo/bloco.
+       */
+      if(bytes_to_process == 0U)
+        {
+          update.error = DWIN_UPDATE_ERROR_FILE_SIZE;
+          return SL_STATUS_INVALID_PARAMETER;
+        }
+
+      bytes_read = 0U;
+
+      /*
        * Lê os dados do arquivo virtual
        */
       if(!dwin_update_file_read(update.file, update.buffer, bytes_to_process, &bytes_read))
@@ -205,6 +227,7 @@ static sl_status_t load_next_chunk(void)
         }
 
       update.buffer_size = bytes_read;
+      update.buffer_offset = 0U;
 
       return SL_STATUS_OK;
     }
@@ -221,72 +244,140 @@ static sl_status_t load_next_chunk(void)
       bytes_to_process = block_remaining;
     }
 
+  /*
+   * O tamanho do bloco e do buffer devem ser pares.
+   */
+  if((bytes_to_process & 1U) != 0U)
+    {
+      bytes_to_process--;
+    }
+
+  if(bytes_to_process == 0U)
+    {
+      update.error = DWIN_UPDATE_ERROR_FILE_SIZE;
+      return SL_STATUS_INVALID_PARAMETER;
+    }
+
   memset(update.buffer,
          DWIN_UPDATE_FILL_VALUE,
          bytes_to_process);
 
   update.buffer_size = bytes_to_process;
+  update.buffer_offset = 0U;
 
   return SL_STATUS_OK;
 }
 
+// pedir implementação nova
 static sl_status_t send_buffer_to_ram(void)
 {
-  sl_status_t status;
-  size_t offset = 0U;
+  size_t packet_size;
 
-  while (offset < update.buffer_size)
+  if(update.buffer_offset >= update.buffer_size)
     {
-      size_t packet_size =
-          update.buffer_size - offset;
+      return SL_STATUS_INVALID_STATE;
+    }
 
-      if(packet_size > DWIN_UPDATE_PACKET_SIZE)
+  packet_size = update.buffer_size - update.buffer_offset;
+
+  if(packet_size > DWIN_UPDATE_PACKET_SIZE)
+    {
+      packet_size = DWIN_UPDATE_PACKET_SIZE;
+    }
+
+  if((packet_size & 1U) != 0U)
+    {
+      packet_size--;
+    }
+
+  if(packet_size == 0U)
+    {
+      return SL_STATUS_INVALID_PARAMETER;
+    }
+
+  update.current_packet_size = packet_size;
+
+  return dwin_write_vp_async(
+      update.ram_address,
+      &update.buffer[update.buffer_offset],
+      packet_size,
+      DWIN_UPDATE_RAM_WRITE_TIMEOUT_MS,
+      dwin_update_ram_write_ack_callback,
+      NULL);
+}
+
+static void dwin_update_ram_write_ack_callback(sl_status_t status, uint16_t vp, void *context)
+{
+  (void)vp;
+  (void)context;
+
+  size_t packet_size;
+
+  if(status != SL_STATUS_OK)
+    {
+      if(dwin_update_is_recoverable_error(status) &&
+          update.retry_count < DWIN_UPDATE_MAX_RETRIES)
         {
-          packet_size = DWIN_UPDATE_PACKET_SIZE;
+          update.retry_count++;
+
+          printf("Falha escrita RAM - retry %u/%u\r\n", update.retry_count, DWIN_UPDATE_MAX_RETRIES);
+
+          update.state = DWIN_UPDATE_STATE_WRITE_RAM;
+          return;
         }
 
-//      status = dwin_write(update.ram_address,
-//                    packet_size,
-//                    &update.buffer[offset]);
-      status = dwin_update_write_ram_packet(update.ram_address, packet_size, &update.buffer[offset]);
+      update.error = DWIN_UPDATE_ERROR_DWIN_WRITE;
+      update.state = DWIN_UPDATE_STATE_ERROR;
 
-      if(status != SL_STATUS_OK)
+      return;
+    }
+
+  /*
+   * Agora o pacote foi confirmado pela DWIN
+   */
+
+  packet_size = update.current_packet_size;
+
+  update.ram_address += (uint16_t)(packet_size / 2U);
+  update.block_offset += (uint32_t)packet_size;
+
+  /*
+   * Só contabiliza bytes reais do arquivo
+   */
+  if(update.file_offset < update.file_size)
+    {
+      uint32_t file_remaining = update.file_size - update.file_offset;
+
+      size_t file_bytes = update.current_packet_size;
+
+      if(file_bytes > file_remaining)
         {
-          return status;
+          file_bytes = file_remaining;
         }
 
-      update.ram_address +=
-          (uint16_t)(packet_size / 2U);
+      update.file_offset += (uint32_t)file_bytes;
+    }
 
-      update.block_offset +=
-          (uint32_t)packet_size;
+  update.buffer_offset += update.current_packet_size;
 
-      /*
-       * Só contabiliza file_offset enquanto
-       * estamos enviando dados que pertencem ao arquivo
-       */
+  update.retry_count = 0U;
 
-      if(update.file_offset < update.file_size)
-        {
-          uint32_t file_remaining = update.file_size - update.file_offset;
-
-          size_t file_bytes = packet_size;
-
-          if(file_bytes > file_remaining)
-          {
-              file_bytes = file_remaining;
-          }
-
-          update.file_offset +=
-              (uint32_t)file_bytes;
-        }
-
-      offset += packet_size;
-  }
+  if(update.buffer_offset < update.buffer_size)
+    {
+      update.state = DWIN_UPDATE_STATE_WRITE_RAM;
+      return;
+    }
 
   update.buffer_size = 0U;
+  update.buffer_offset = 0U;
 
-  return SL_STATUS_OK;
+  if(update.block_offset < update.current_block_size)
+    {
+      update.state = DWIN_UPDATE_STATE_LOAD_BLOCK;
+      return;
+    }
+
+  update.state = DWIN_UPDATE_STATE_FLASH_WRITE;
 }
 
 static sl_status_t dwin_update_write_ram_packet(uint16_t ram_address, size_t packet_size, const uint8_t *data)
@@ -342,7 +433,7 @@ static sl_status_t fill_ram_with_zero(void)
       if(fill_size > sizeof(zero_buffer))
         fill_size = sizeof(zero_buffer);
 
-      if(dwin_write(update.ram_address, fill_size, zero_buffer) != SL_STATUS_OK)
+      if(dwin_write(update.ram_address, zero_buffer, fill_size) != SL_STATUS_OK)
         {
           return SL_STATUS_FAIL;
         }
@@ -478,6 +569,14 @@ void dwin_update_process(void)
 
   switch(update.state)
   {
+    case DWIN_UPDATE_STATE_ENABLE_CRC:
+      dwin_update_case_enable_crc(&status);
+      break;
+
+    case DWIN_UPDATE_STATE_WAIT_CRC_ENABLES:
+      dwin_update_case_wait_crc_enables(&status);
+      break;
+
     case DWIN_UPDATE_STATE_LOAD_BLOCK:
       dwin_update_case_load_block(&status);
       break;
@@ -501,6 +600,7 @@ void dwin_update_process(void)
     case DWIN_UPDATE_STATE_VERIFY_BLOCK:
       dwin_update_case_verify_block(&status);
       break;
+
     case DWIN_UPDATE_STATE_NEXT_BLOCK:
       dwin_update_case_next_block(&status);
       break;
@@ -516,6 +616,27 @@ void dwin_update_process(void)
     default:
       break;
   }
+}
+
+static void dwin_update_case_enable_crc(sl_status_t *status)
+{
+  *status = dwin_enable_crc();
+
+  if(*status != SL_STATUS_OK)
+    {
+      update.state = DWIN_UPDATE_STATE_ERROR;
+      return;
+    }
+
+  update.state = DWIN_UPDATE_STATE_WAIT_CRC_ENABLES;
+}
+
+static void dwin_update_case_wait_crc_enables(sl_status_t *status)
+{
+  if(dwin_is_crc_enabled())
+    {
+      update.state = DWIN_UPDATE_STATE_LOAD_BLOCK;
+    }
 }
 
 static void dwin_update_case_load_block(sl_status_t *status)
@@ -579,23 +700,19 @@ static void dwin_update_case_write_ram(sl_status_t *status)
 
   if(*status != SL_STATUS_OK)
     {
+      if(dwin_update_is_recoverable_error(*status) &&
+          update.retry_count < DWIN_UPDATE_MAX_RETRIES)
+        {
+          update.retry_count++;
+
+          printf("Falha envio RAM - retry %u/%u - status 0x%02X\r\n", update.retry_count, DWIN_UPDATE_MAX_RETRIES, (unsigned int)*status);
+          return;
+        }
       update.error = DWIN_UPDATE_ERROR_DWIN_WRITE;
       update.state = DWIN_UPDATE_STATE_ERROR;
       return;
     }
 
-  /*
-   * Ainda existem dados a serem enviados para o bloco.
-   */
-  if(update.block_offset < update.current_block_size)
-    {
-      update.state = DWIN_UPDATE_STATE_LOAD_BLOCK;
-      return;
-    }
-
-  /*
-   * O bloco físico está completo.
-   */
   update.state = DWIN_UPDATE_STATE_FLASH_WRITE;
 }
 
@@ -649,7 +766,6 @@ static void dwin_update_case_wait_flash(sl_status_t *status)
   if(update.flash_status_pending)
     {
       return;
-
     }
 
   *status = dwin_update_request_flash_status_with_retry();

@@ -143,7 +143,7 @@ void dwin_update_init_values(dwin_update_t *update)
     }
 
   update->active = true;
-  update->state = DWIN_UPDATE_STATE_LOAD_BLOCK;
+  update->state = DWIN_UPDATE_STATE_ENABLE_CRC;
   update->error = DWIN_UPDATE_ERROR_NONE;
 }
 

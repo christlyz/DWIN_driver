@@ -55,17 +55,22 @@
 #define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA (32U * 1024)
 #define DWIN_TEST_RAM_SIZE (32U * 1024U)
 #define DWIN_TEST_FLASH_SIZE (32 * 1024U)
+
+#define DWIN_UPDATE_RAM_WRITE_TIMEOUT_MS 1000U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
 typedef enum
 {
   DWIN_UPDATE_STATE_IDLE,
+  DWIN_UPDATE_STATE_ENABLE_CRC,
+  DWIN_UPDATE_STATE_WAIT_CRC_ENABLES,
   DWIN_UPDATE_STATE_LOAD_BLOCK,
   DWIN_UPDATE_STATE_WRITE_RAM,
   DWIN_UPDATE_STATE_FILL_BLOCK,
   DWIN_UPDATE_STATE_FLASH_WRITE,
   DWIN_UPDATE_STATE_WAIT_FLASH,
+  DWIN_UPDATE_STATE_WAIT_CRC_ACK,
   DWIN_UPDATE_STATE_VERIFY_BLOCK,
   DWIN_UPDATE_STATE_NEXT_BLOCK,
   DWIN_UPDATE_STATE_FINISH,
@@ -122,6 +127,9 @@ typedef struct
   uint32_t block_offset;
   uint32_t current_block_size;
   uint32_t block_file_offset;
+
+  size_t current_packet_size;
+  size_t buffer_offset;
 
   uint16_t ram_address;
 

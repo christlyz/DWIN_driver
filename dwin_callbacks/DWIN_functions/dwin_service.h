@@ -46,6 +46,7 @@
 #define DWIN_DEFAULT_STANDBY_TIMEOUT          10000
 #define DWIN_DEFAULT_STANDBY_ACTIVATED        0
 #define DWIN_DEFAULT_TOUCH_SOUND_ACTIVATED    0
+#define DWIN_DEFAULT_CRC_ACTIVATED            0
 
 #define DWIN_PAGE_ENABLE  0x5A
 #define DWIN_PAGE_SWITCH  0x01
@@ -54,6 +55,7 @@
 #define DWIN_WRITE_OK_2 0x4B
 
 #define DWIN_HEADER_SIZE 3U
+#define DWIN_CRC_SIZE    2U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
@@ -61,6 +63,7 @@ typedef struct
 {
   bool standby_brightness_activated;
   bool touch_sound_activated;
+  bool crc_activated;
   uint8_t brightness;
   uint8_t standby_brightness;
   uint16_t standby_timeout;
@@ -69,6 +72,8 @@ typedef struct
 typedef void (*dwin_vp_callback_t) (uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 
 typedef void (*dwin_read_callback_t) (sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+
+typedef void (*dwin_write_ack_callback_t)(sl_status_t status, uint16_t vp, void *context);
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
@@ -85,7 +90,7 @@ sl_status_t dwin_read_text(uint16_t vp, uint8_t expected_size, dwin_read_callbac
 size_t dwin_extract_text(const uint8_t *data, size_t data_size, char *text, size_t text_size);
 sl_status_t dwin_clear_text(uint16_t vp, uint8_t text_size);
 
-sl_status_t dwin_write(uint16_t vp, size_t data_size, uint8_t *data);
+sl_status_t dwin_write(uint16_t vp, uint8_t *data, size_t data_size);
 sl_status_t dwin_read(uint16_t vp, size_t data_size, dwin_read_callback_t callback);
 
 sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, bool expect_data, uint16_t expected_data, dwin_vp_callback_t callback);
@@ -94,8 +99,14 @@ sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t 
 sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, dwin_read_callback_t callback);
 sl_status_t dwin_cancel_read_vp(uint16_t vp);
 
+sl_status_t dwin_write_vp_async(uint16_t vp, uint8_t *data, size_t data_size, uint32_t timeout_ms, dwin_write_ack_callback_t callback, void *context);
+
+sl_status_t dwin_enable_crc();
+sl_status_t dwin_disable_crc();
 sl_status_t dwin_change_page(uint16_t page);
 sl_status_t dwin_play_buzzer_ms(uint16_t milisseconds);
+
+bool dwin_is_crc_enabled();
 /*******************************************************************************
  * End
  ******************************************************************************/

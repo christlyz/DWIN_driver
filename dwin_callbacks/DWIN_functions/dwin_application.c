@@ -16,6 +16,8 @@
 uint16_t page;
 sl_zigbee_event_t change_page_callback;
 void change_page_handler(sl_zigbee_event_t *event);
+static sl_zigbee_event_t update_event;
+static void update_handler(sl_zigbee_event_t *event);
 dwin_config_t *my_dwin;
 /*******************************************************************************
  * Extern
@@ -30,6 +32,8 @@ static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_siz
 static void return_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void input_text_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void enable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void disable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 /*******************************************************************************
  * Function name:
  *
@@ -88,12 +92,26 @@ void application_init()
       0,
       input_text_callback);
 
+//  dwin_register_callback(
+//      DWIN_VP_SECOND_TEXT,
+//      DWIN_CMD_READ,
+//      false,
+//      0,
+//      input_text_callback);
+
   dwin_register_callback(
       DWIN_VP_SECOND_TEXT,
       DWIN_CMD_READ,
-      false,
-      0,
-      input_text_callback);
+      true,
+      0x4543,
+      enable_crc_callback);
+
+  dwin_register_callback(
+      DWIN_VP_SECOND_TEXT,
+      DWIN_CMD_READ,
+      true,
+      0x4443,
+      disable_crc_callback);
 
   dwin_register_callback(
       DWIN_VP_THIRD_TEXT,
@@ -102,7 +120,10 @@ void application_init()
       0x4F4B,
       update_callback);
 
+
 //  dwin_play_buzzer_ms(250);
+
+  sl_zigbee_event_init(&update_event, update_handler);
 }
 
 static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -110,8 +131,8 @@ static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_s
   dwin_set_icon(DWIN_VP_ICON, DWIN_ICON_FIRE);
   dwin_write_text(DWIN_VP_TEXT_STATUS, DWIN_TEXT_SIZE, "FOGO");
 
-  my_dwin->brightness = 50;
-  dwin_configure_device();
+//  my_dwin->brightness = 50;
+//  dwin_configure_device();
 }
 
 static void fault_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -119,8 +140,8 @@ static void fault_button_callback(uint16_t vp, const uint8_t *data, size_t data_
   dwin_set_icon(DWIN_VP_ICON, DWIN_ICON_FAULT);
   dwin_write_text(DWIN_VP_TEXT_STATUS, DWIN_TEXT_SIZE, "FALHA");
 
-  my_dwin->brightness = 0;
-  dwin_configure_device();
+//  my_dwin->brightness = 0;
+//  dwin_configure_device();
 }
 
 static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -128,8 +149,8 @@ static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_siz
   dwin_set_icon(DWIN_VP_ICON, DWIN_ICON_NORMAL);
   dwin_write_text(DWIN_VP_TEXT_STATUS, DWIN_TEXT_SIZE, "ESTADO NORMAL");
 
-  my_dwin->brightness = 100;
-  dwin_configure_device();
+//  my_dwin->brightness = 100;
+//  dwin_configure_device();
 
   dwin_change_page(DWIN_PAGE_TEXT);
 }
@@ -156,9 +177,25 @@ void change_page_handler(sl_zigbee_event_t *event)
 
 static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
+  sl_zigbee_event_set_delay_ms(&update_event, 100);
+}
+
+static void enable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+{
+  dwin_enable_crc();
+}
+
+static void disable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
+{
+  dwin_disable_crc();
+}
+
+void update_handler(sl_zigbee_event_t *event)
+{
   sl_status_t status = SL_STATUS_IS_WAITING;
-  while(status != SL_STATUS_OK)
+  start_update();
+  if(status != SL_STATUS_OK)
     {
-      start_update();
+      sl_zigbee_event_set_delay_ms(&update_event, 100);
     }
 }
