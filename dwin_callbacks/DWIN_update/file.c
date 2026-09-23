@@ -15,6 +15,7 @@
  ******************************************************************************/
 static files current_file = DWIN_14SHOWFILE;
 static dwin_update_file_t *file = NULL;
+static bool finished = false;
 /*******************************************************************************
  * Extern
  ******************************************************************************/
@@ -37,60 +38,24 @@ sl_status_t start_update()
   sl_status_t status = SL_STATUS_OK;
   switch (current_file)
   {
-//    case DWIN_13TOUCHFILE:
-//      file = get_file_13();
-//      current_file = DWIN_14SHOWFILE;
-//      status = SL_STATUS_IS_WAITING;
-//      break;
-    case DWIN_14SHOWFILE:
-      file = get_file_14();
-      status = dwin_update_start(file);
+    case DWIN_32:
+      file = get_file_32();
+      status = dwin_update_start(file, &finished);
       if(status == SL_STATUS_OK)
         {
-          current_file = DWIN_22_CONFIG;
-          status = SL_STATUS_IS_WAITING;
-        }
-      break;
-    case DWIN_22_CONFIG:
-      file = get_file_22();
-      status = dwin_update_start(file);
-      if(status == SL_STATUS_OK)
-        {
-          current_file = DWIN_59;
-          status = SL_STATUS_IS_WAITING;
-        }
-      break;
-    case DWIN_59:
-      file = get_file_59();
-      status = dwin_update_start(file);
-      if(status == SL_STATUS_OK)
-        {
-          current_file = DWIN_63;
-          status = SL_STATUS_IS_WAITING;
-        }
-      break;
-//    case DWIN_60:
-//      file = get_file_60();
-//      current_file = DWIN_62;
-//      status = SL_STATUS_IS_WAITING;
-//      break;
-//    case DWIN_62:
-//      file = get_file_62();
-//      status = dwin_update_start(file);
-//      if(status == SL_STATUS_OK)
-//        {
-//          current_file = DWIN_63;
-//          status = SL_STATUS_IS_WAITING;
-//        }
-//      break;
-    case DWIN_63:
-      file = get_file_63();
-      status = dwin_update_start(file);
-      if(status == SL_STATUS_OK)
-        {
-          current_file = DWIN_FINISH;
+          current_file = DWIN_RESET;
           file = NULL;
+          status = SL_STATUS_IS_WAITING;
         }
+      break;
+    case DWIN_RESET:
+      if(finished)
+        {
+          dwin_reset();
+          finished = false;
+          return status;
+        }
+      status = SL_STATUS_IS_WAITING;
       break;
     default:
       break;

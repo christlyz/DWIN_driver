@@ -27,13 +27,8 @@
 #include "sl_status.h"
 #include "dwin_update.h"
 #include "dwin_file.h"
-//#include "../Files/13TouchFile.h"
-#include "../Files/14ShowFile.h"
-#include "../Files/22_Config.h"
-#include "../Files/59.h"
-//#include "../Files/62.h"
-#include "../Files/63.h"
-//#include "../Files/60.h"
+
+#include "../Files/32.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -50,11 +45,12 @@ typedef enum
   DWIN_13TOUCHFILE,
   DWIN_14SHOWFILE,
   DWIN_22_CONFIG,
+  DWIN_32,
   DWIN_59,
   DWIN_60,
   DWIN_62,
   DWIN_63,
-  DWIN_FINISH
+  DWIN_RESET
 } files;
 /*******************************************************************************
  * Interface Funtions

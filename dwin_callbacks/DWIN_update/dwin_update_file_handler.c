@@ -119,9 +119,11 @@ void dwin_update_init_values(dwin_update_t *update)
   update->block_file_offset = 0U;
   update->buffer_size = 0U;
   update->ram_address = DWIN_UPDATE_RAM_START;
-  update->retry_count = 0U;
   update->progress = 0U;
   update->flash_status_pending = false;
+  update->ram_retry_count = 0U;
+  update->flash_retry_count = 0U;
+  update->flash_status_retry_count = 0U;
 
   if(update->method == DWIN_UPDATE_METHOD_0xAA)
     {

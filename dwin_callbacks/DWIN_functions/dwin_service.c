@@ -651,6 +651,20 @@ sl_status_t dwin_play_buzzer_ms(uint16_t milliseconds)
   return dwin_write(DWIN_VP_BUZZER, data, sizeof(data));
 }
 
+sl_status_t dwin_reset()
+{
+  uint8_t data[4];
+
+  data[0] = 0x55U;
+  data[1] = 0xAAU;
+  data[2] = 0x5AU;
+  data[3] = 0xA5U;
+
+  return dwin_write(DWIN_VP_SYSTEM_RESET,
+             data,
+             sizeof(data));
+}
+
 bool dwin_is_crc_enabled()
 {
   return dwin->crc_activated;

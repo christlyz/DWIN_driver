@@ -46,7 +46,7 @@
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
-sl_status_t dwin_update_flash_write_block(uint16_t flash_block, uint16_t ram_address, uint16_t delay_ms);
+sl_status_t dwin_update_flash_write_block();
 
 sl_status_t dwin_update_flash_request_status(void);
 /*******************************************************************************

@@ -177,6 +177,11 @@ void change_page_handler(sl_zigbee_event_t *event)
 
 static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
 {
+  (void)vp;
+  (void)data;
+  (void)data_size;
+  (void)context;
+
   sl_zigbee_event_set_delay_ms(&update_event, 100);
 }
 
@@ -192,10 +197,14 @@ static void disable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_s
 
 void update_handler(sl_zigbee_event_t *event)
 {
-  sl_status_t status = SL_STATUS_IS_WAITING;
-  start_update();
+  sl_status_t status;
+  status = start_update();
   if(status != SL_STATUS_OK)
     {
       sl_zigbee_event_set_delay_ms(&update_event, 100);
+    }
+  else
+    {
+      sl_zigbee_event_set_inactive(&update_event);
     }
 }

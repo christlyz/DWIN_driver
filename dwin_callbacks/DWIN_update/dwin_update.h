@@ -53,26 +53,25 @@
 #define DWIN_UPDATE_MAX_RETRIES 3U
 
 #define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA (32U * 1024)
-#define DWIN_TEST_RAM_SIZE (32U * 1024U)
-#define DWIN_TEST_FLASH_SIZE (32 * 1024U)
 
-#define DWIN_UPDATE_RAM_WRITE_TIMEOUT_MS 1000U
+#define DWIN_UPDATE_FLASH_WRITE_TIMEOUT_MS 1000U
+#define DWIN_UPDATE_RAM_WRITE_TIMEOUT_MS   1000U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
 typedef enum
 {
-  DWIN_UPDATE_STATE_IDLE,
   DWIN_UPDATE_STATE_ENABLE_CRC,
-  DWIN_UPDATE_STATE_WAIT_CRC_ENABLES,
+  DWIN_UPDATE_STATE_WAIT_CRC_ENABLE,
   DWIN_UPDATE_STATE_LOAD_BLOCK,
   DWIN_UPDATE_STATE_WRITE_RAM,
-  DWIN_UPDATE_STATE_FILL_BLOCK,
+  DWIN_UPDATE_STATE_WAIT_RAM_ACK,
   DWIN_UPDATE_STATE_FLASH_WRITE,
   DWIN_UPDATE_STATE_WAIT_FLASH,
-  DWIN_UPDATE_STATE_WAIT_CRC_ACK,
-  DWIN_UPDATE_STATE_VERIFY_BLOCK,
   DWIN_UPDATE_STATE_NEXT_BLOCK,
+  DWIN_UPDATE_STATE_DISABLE_CRC,
+  DWIN_UPDATE_STATE_WAIT_CRC_DISABLE,
+  DWIN_UPDATE_STATE_ERROR_WAIT_CRC_DISABLE,
   DWIN_UPDATE_STATE_FINISH,
   DWIN_UPDATE_STATE_ERROR
 } dwin_update_state_t;
@@ -90,6 +89,7 @@ typedef enum
   DWIN_UPDATE_ERROR_DWIN_STATUS,
   DWIN_UPDATE_ERROR_FLASH_WRITE,
   DWIN_UPDATE_ERROR_TIMEOUT,
+  DWIN_UPDATE_ERROR_INVALID_STATE,
   DWIN_UPDATE_ERROR_RETRY
 } dwin_update_error_t;
 
@@ -138,7 +138,9 @@ typedef struct
 
   bool flash_status_pending;
 
-  uint8_t retry_count;
+  uint8_t ram_retry_count;
+  uint8_t flash_retry_count;
+  uint8_t flash_status_retry_count;
 
   uint8_t progress;
 
@@ -153,7 +155,7 @@ typedef struct
  ******************************************************************************/
 sl_status_t dwin_update_open_file(const char *filename);
 
-sl_status_t dwin_update_start(dwin_update_file_t *file);
+sl_status_t dwin_update_start(dwin_update_file_t *file, bool *finish);
 
 void dwin_update_process(void);
 
@@ -162,6 +164,7 @@ bool dwin_update_is_active(void);
 dwin_update_state_t dwin_update_get_state(void);
 
 dwin_update_error_t dwin_update_get_error(void);
+bool dwin_update_is_recoverable_error(sl_status_t status);
 
 uint8_t dwin_update_get_progress(void);
 /*******************************************************************************

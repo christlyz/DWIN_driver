@@ -101,11 +101,12 @@ sl_status_t dwin_cancel_read_vp(uint16_t vp);
 
 sl_status_t dwin_write_vp_async(uint16_t vp, uint8_t *data, size_t data_size, uint32_t timeout_ms, dwin_write_ack_callback_t callback, void *context);
 
-sl_status_t dwin_enable_crc();
-sl_status_t dwin_disable_crc();
 sl_status_t dwin_change_page(uint16_t page);
 sl_status_t dwin_play_buzzer_ms(uint16_t milisseconds);
+sl_status_t dwin_reset();
 
+sl_status_t dwin_enable_crc();
+sl_status_t dwin_disable_crc();
 bool dwin_is_crc_enabled();
 /*******************************************************************************
  * End
