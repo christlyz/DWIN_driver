@@ -47,8 +47,8 @@ sl_status_t dwin_update_flash_write_block()
   data[2] = (uint8_t)(update.current_block >> 8);
   data[3] = (uint8_t)(update.current_block & 0xFFU);
 
-  data[4] = (uint8_t)(update.ram_address >> 8);
-  data[5] = (uint8_t)(update.ram_address & 0xFFU);
+  data[4] = (uint8_t)(DWIN_UPDATE_RAM_START >> 8);
+  data[5] = (uint8_t)(DWIN_UPDATE_RAM_START & 0xFFU);
 
   data[6] = 0x00U;
   data[7] = 0x14U;

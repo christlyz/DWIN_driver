@@ -39,7 +39,7 @@ sl_status_t start_update()
   switch (current_file)
   {
     case DWIN_32:
-      file = get_file_32();
+      file = get_file_32_two();
       status = dwin_update_start(file, &finished);
       if(status == SL_STATUS_OK)
         {
