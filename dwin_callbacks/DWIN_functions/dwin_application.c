@@ -19,6 +19,7 @@ void change_page_handler(sl_zigbee_event_t *event);
 static sl_zigbee_event_t update_event;
 static void update_handler(sl_zigbee_event_t *event);
 dwin_config_t *my_dwin;
+
 /*******************************************************************************
  * Extern
  ******************************************************************************/
@@ -62,7 +63,8 @@ void application_init()
       DWIN_CMD_READ,
       true,
       DWIN_BUTTON_FIRE,
-      fire_button_callback);
+      update_callback);
+
 
   dwin_register_callback(
       DWIN_VP_ACTION_BUTTON,
@@ -120,10 +122,10 @@ void application_init()
       0x4F4B,
       update_callback);
 
-
 //  dwin_play_buzzer_ms(250);
 
   sl_zigbee_event_init(&update_event, update_handler);
+//  sl_zigbee_event_set_delay_ms(&update_event, 5000);
 }
 
 static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -139,7 +141,6 @@ static void fault_button_callback(uint16_t vp, const uint8_t *data, size_t data_
 {
   dwin_set_icon(DWIN_VP_ICON, DWIN_ICON_FAULT);
   dwin_write_text(DWIN_VP_TEXT_STATUS, DWIN_TEXT_SIZE, "FALHA");
-
 //  my_dwin->brightness = 0;
 //  dwin_configure_device();
 }
@@ -205,6 +206,8 @@ void update_handler(sl_zigbee_event_t *event)
     }
   else
     {
+      my_dwin->brightness = 100;
+      dwin_configure_device();
       sl_zigbee_event_set_inactive(&update_event);
     }
 }

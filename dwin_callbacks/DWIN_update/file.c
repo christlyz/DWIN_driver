@@ -13,7 +13,7 @@
 /*******************************************************************************
  * Data types
  ******************************************************************************/
-static files current_file = DWIN_14SHOWFILE;
+static files current_file = DWIN_32;
 static dwin_update_file_t *file = NULL;
 static bool finished = false;
 /*******************************************************************************

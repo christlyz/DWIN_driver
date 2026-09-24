@@ -24,7 +24,7 @@
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include "dwin_driver.h"
+
 #include "dwin_widget.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -54,8 +54,8 @@
 #define DWIN_WRITE_OK_1 0x4F
 #define DWIN_WRITE_OK_2 0x4B
 
-#define DWIN_HEADER_SIZE 3U
-#define DWIN_CRC_SIZE    2U
+#define DWIN_CMD_WRITE  0x82
+#define DWIN_CMD_READ   0x83
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
@@ -91,13 +91,12 @@ size_t dwin_extract_text(const uint8_t *data, size_t data_size, char *text, size
 sl_status_t dwin_clear_text(uint16_t vp, uint8_t text_size);
 
 sl_status_t dwin_write(uint16_t vp, uint8_t *data, size_t data_size);
-sl_status_t dwin_read(uint16_t vp, size_t data_size, dwin_read_callback_t callback);
+sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, dwin_read_callback_t callback);
+sl_status_t dwin_cancel_read_vp(uint16_t vp);
 
 sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, bool expect_data, uint16_t expected_data, dwin_vp_callback_t callback);
 sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data);
 
-sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, dwin_read_callback_t callback);
-sl_status_t dwin_cancel_read_vp(uint16_t vp);
 
 sl_status_t dwin_write_vp_async(uint16_t vp, uint8_t *data, size_t data_size, uint32_t timeout_ms, dwin_write_ack_callback_t callback, void *context);
 

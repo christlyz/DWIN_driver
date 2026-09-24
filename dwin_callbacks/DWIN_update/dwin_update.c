@@ -425,9 +425,14 @@ static void update_event_handler(sl_zigbee_event_t *event)
   dwin_update_process();
 
   if(update.active)
-    sl_zigbee_event_set_delay_ms(&dwin_update_event, 10U);
+    {
+      sl_zigbee_event_set_delay_ms(&dwin_update_event, 10U);
+    }
   else
-    sl_zigbee_event_set_inactive(&dwin_update_event);
+    {
+      printf("Update Inativo\r\n");
+      sl_zigbee_event_set_inactive(&dwin_update_event);
+    }
 }
 
 void dwin_update_process(void)
@@ -627,6 +632,8 @@ static void dwin_update_case_next_block(sl_status_t *status)
       update.current_block -
       update.file_id_base_block;
 
+  printf("Bloco %ld completo, atualização %u%% completa\r\n", blocks_completed, update.progress);
+
   /*
    * O último bloco necessário para todos os IDs já foi
    * gravado.
@@ -697,6 +704,7 @@ static void dwin_update_case_error_wait_crc_disable(sl_status_t *status)
       dwin_update_file_close(update.file);
     }
 
+  printf("ERRO");
   update.active = false;
 }
 

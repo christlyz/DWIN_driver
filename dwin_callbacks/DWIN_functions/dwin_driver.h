@@ -43,6 +43,8 @@
 
 #define DWIN_MAX_PACKET_SIZE 255U
 #define DWIN_MAX_DATA_LENGTH 249U
+#define DWIN_HEADER_SIZE     3U
+#define DWIN_CRC_SIZE        2U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
@@ -57,7 +59,10 @@ typedef struct
  * Interface Funtions
  ******************************************************************************/
 sl_status_t dwin_write_vp(uint16_t vp, const uint8_t *data, size_t size);
+sl_status_t dwin_write_vp_crc(uint16_t vp, const uint8_t * data, size_t size);
 sl_status_t dwin_read_vp(uint16_t vp, uint8_t words);
+sl_status_t dwin_read_vp_crc(uint16_t vp, uint8_t words);
+bool dwin_packet_check_crc(const uint8_t *packet, size_t packet_size);
 /*******************************************************************************
  * End
  ******************************************************************************/

@@ -10,7 +10,7 @@
  * Includes
  ******************************************************************************/
 #include "dwin_service.h"
-
+#include "dwin_driver.h"
 /*******************************************************************************
  * Data types
  ******************************************************************************/
@@ -64,6 +64,7 @@ static dwin_config_t *dwin;
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
+static sl_status_t dwin_read(uint16_t vp, uint8_t words);
 static void dwin_handle_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context);
 static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context);
 static void device_configuration_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
@@ -72,14 +73,12 @@ static void touch_sound_handle(bool activated, uint8_t *settings);
 static sl_status_t dwin_config_brightness(uint8_t default_brightness, uint8_t standby_brightness, uint16_t backlight_delay_ms);
 static bool dwin_receive_bytes(void);
 static void dwin_enable_crc_callback(sl_status_t status, uint16_t vp, void *context);
+static void dwin_disable_crc_callback(sl_status_t status, uint16_t vp, void *context);
 static void dwin_process_packets(void);
 static void process_packet(const uint8_t *packet, size_t packet_size);
 static void parse_read(const uint8_t *packet, size_t packet_size);
 static void parse_write(const uint8_t *packet, size_t packet_size);
 static void parse_ack(const uint8_t *packet, size_t packet_size);
-static uint16_t dwin_crc16_calculate(uint16_t crc, uint8_t data);
-static sl_status_t dwin_packet_add_crc(uint16_t vp, const uint8_t *data, size_t data_size, uint8_t *data_with_crc, size_t *data_with_crc_size);
-static bool dwin_packet_check_crc(const uint8_t *packet, size_t packet_size);
 static uint16_t bytes_to_u16(uint8_t msb, uint8_t lsb);
 static void dwin_process_timeout();
 static void check_timeout_init();
@@ -294,29 +293,28 @@ sl_status_t dwin_write(uint16_t vp, uint8_t *data, size_t data_size)
     {
       return SL_STATUS_NULL_POINTER;
     }
+
   if(!dwin->crc_activated)
     {
       return dwin_write_vp(vp, data, data_size);
     }
 
-  sl_status_t status;
-  uint8_t data_with_crc[DWIN_MAX_DATA_LENGTH + DWIN_CRC_SIZE];
-  size_t data_with_crc_size;
-
-  status = dwin_packet_add_crc(vp, data, data_size, data_with_crc, &data_with_crc_size);
-
-  if(status != SL_STATUS_OK)
-    {
-      return status;
-    }
-
-  return dwin_write_vp(vp, data_with_crc, data_with_crc_size);
+  return dwin_write_vp_crc(vp, data, data_size);
 }
 
-sl_status_t dwin_read(uint16_t vp, size_t data_size, dwin_read_callback_t callback)
+static sl_status_t dwin_read(uint16_t vp, uint8_t words)
 {
-  uint8_t words = (data_size + 1U) / 2U;
-  return dwin_read_vp_async(vp, words, 1000, callback);
+  if(words == 0U)
+    {
+      return SL_STATUS_INVALID_PARAMETER;
+    }
+
+  if(!dwin->crc_activated)
+    {
+      return dwin_read_vp(vp, words);
+    }
+
+  return dwin_read_vp_crc(vp, words);
 }
 
 /*
@@ -437,7 +435,7 @@ sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, 
       current = current->next;
     }
 
-  sl_status_t status = dwin_read_vp(vp, words);
+  sl_status_t status = dwin_read(vp, words);
 
   if(status != SL_STATUS_OK)
     {
@@ -589,6 +587,17 @@ sl_status_t dwin_enable_crc()
                              NULL);
 }
 
+static void dwin_enable_crc_callback(sl_status_t status, uint16_t vp, void *context)
+{
+  if(status != SL_STATUS_OK)
+    {
+      return;
+    }
+
+  printf("CRC ATIVADO!\r\n");
+  dwin->crc_activated = true;
+}
+
 sl_status_t dwin_disable_crc()
 {
   if(!dwin->crc_activated)
@@ -606,20 +615,20 @@ sl_status_t dwin_disable_crc()
                              data,
                              sizeof(data),
                              1000,
-                             dwin_enable_crc_callback,
+                             dwin_disable_crc_callback,
                              NULL);
 }
-static void dwin_enable_crc_callback(sl_status_t status, uint16_t vp, void *context)
+
+static void dwin_disable_crc_callback(sl_status_t status, uint16_t vp, void *context)
 {
   if(status != SL_STATUS_OK)
     {
       return;
     }
 
-  printf("CRC ATIVADO!\r\n");
-  dwin->crc_activated = true;
+  printf("CRC DESATIVADO!\r\n");
+  dwin->crc_activated = false;
 }
-
 /*
  * Troca a página atual da DWIN
  */
@@ -660,9 +669,20 @@ sl_status_t dwin_reset()
   data[2] = 0x5AU;
   data[3] = 0xA5U;
 
-  return dwin_write(DWIN_VP_SYSTEM_RESET,
+  sl_status_t status;
+  status = dwin_write(DWIN_VP_SYSTEM_RESET,
              data,
              sizeof(data));
+
+  if(status == SL_STATUS_OK)
+    {
+      printf("Tela reiniciada\r\n");
+    }
+  else
+    {
+      printf("Falha em reiniciar a tela\r\n");
+    }
+  return status;
 }
 
 bool dwin_is_crc_enabled()
@@ -892,130 +912,6 @@ static void parse_ack(const uint8_t *packet, size_t packet_size)
     {
       callback(SL_STATUS_FAIL, vp, context);
     }
-}
-
-static uint16_t dwin_crc16_calculate(uint16_t crc, uint8_t data)
-{
-  uint8_t bit;
-
-  crc ^= (uint16_t)data;
-
-  for(bit = 0U; bit < 8U; bit++)
-    {
-      if((crc & 0x0001U) != 0U)
-        {
-          crc >>= 1;
-          crc ^= 0xA001U;
-        }
-      else
-        {
-          crc >>= 1;
-        }
-    }
-  return crc;
-}
-
-static sl_status_t dwin_packet_add_crc(uint16_t vp, const uint8_t *data, size_t data_size, uint8_t *data_with_crc, size_t *data_with_crc_size)
-{
-  uint16_t crc = 0xFFFFU;
-  size_t i;
-
-  if(data == NULL ||
-      data_with_crc == NULL ||
-      data_with_crc_size == NULL)
-    {
-      return SL_STATUS_NULL_POINTER;
-    }
-
-  if(data_size == 0U)
-    {
-      return SL_STATUS_INVALID_PARAMETER;
-    }
-
-  if(data_size + DWIN_CRC_SIZE > DWIN_MAX_DATA_LENGTH)
-    {
-      return SL_STATUS_WOULD_OVERFLOW;
-    }
-
-  /*
-   * Instruction
-   */
-  crc = dwin_crc16_calculate(crc, DWIN_CMD_WRITE);
-
-  /*
-   * VP MSB
-   */
-  crc = dwin_crc16_calculate(crc, (uint8_t)(vp >> 8));
-
-  /*
-   * VP LSB
-   */
-  crc = dwin_crc16_calculate(crc, (uint8_t)(vp & 0xFFU));
-
-  /*
-   * Dados
-   */
-  for(i = 0U; i < data_size; i++)
-    {
-      crc = dwin_crc16_calculate(crc, data[i]);
-      data_with_crc[i] = data[i];
-    }
-
-  /*
-   * Troca dos bytes.
-   */
-  crc = (uint16_t)(((crc & 0x00FFU) << 8) |
-                   ((crc & 0xFF00U) >> 8));
-
-  data_with_crc[data_size] = (uint8_t)(crc >> 8);
-
-  data_with_crc[data_size + 1U] = (uint8_t)(crc & 0xFFU);
-
-  *data_with_crc_size = data_size + DWIN_CRC_SIZE;
-
-  return SL_STATUS_OK;
-}
-
-static bool dwin_packet_check_crc(const uint8_t *packet, size_t packet_size)
-{
-  uint16_t calculated_crc = 0xFFFFU;
-  uint16_t received_crc;
-  size_t data_size;
-  size_t i;
-
-  if(packet == NULL)
-    {
-      return false;
-    }
-
-  if(packet_size < DWIN_HEADER_SIZE + 1U + DWIN_CRC_SIZE)
-    {
-      return false;
-    }
-
-  /*
-   * length inclui instruction + data + CRC
-   */
-  if(packet_size != (size_t)(DWIN_HEADER_SIZE + packet[2]))
-    {
-      return false;
-    }
-
-  if(packet[2] < (1U + DWIN_CRC_SIZE))
-    {
-      return false;
-    }
-
-  data_size = packet_size - DWIN_HEADER_SIZE - DWIN_CRC_SIZE;
-
-  for(i = 0U; i < data_size; i++)
-    {
-      calculated_crc = dwin_crc16_calculate(calculated_crc, packet[DWIN_HEADER_SIZE + i]);
-    }
-
-  received_crc = ((uint16_t)packet[packet_size - 1U] << 8) | (uint16_t)packet[packet_size - 2U];
-
-  return calculated_crc == received_crc;
 }
 
 /*
