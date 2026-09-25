@@ -611,8 +611,6 @@ static void dwin_enable_crc_callback(sl_status_t status, uint16_t vp, void *cont
     {
       return;
     }
-
-  printf("CRC ATIVADO!\r\n");
   dwin->crc_activated = true;
 }
 
@@ -644,7 +642,6 @@ static void dwin_disable_crc_callback(sl_status_t status, uint16_t vp, void *con
       return;
     }
 
-  printf("CRC DESATIVADO!\r\n");
   dwin->crc_activated = false;
 }
 /*
