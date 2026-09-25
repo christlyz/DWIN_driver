@@ -24,11 +24,7 @@
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "dwin_update.h"
+#include "dwin_update_internal.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -47,14 +43,33 @@
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
+/*
+ * Responsável por identificar e armazenar a extensão do arquivo.
+ */
 bool dwin_update_extension_handler(dwin_update_t *update);
 
+/*
+ * Responsável por identificar o método de atualização associado
+ * ao nome do arquivo.
+ */
 bool dwin_update_identify_file_handler(dwin_update_t *update);
 
+/*
+ * Responsável por validar e calcular as informações de tamanho
+ * necessárias para a atualização.
+ */
 bool dwin_update_file_size_handler(sl_status_t *status, dwin_update_t *update);
 
+/*
+ * Responsável por validar se os IDs necessários para o arquivo
+ * estão dentro da faixa suportada pela memória da DWIN.
+ */
 bool dwin_update_validate_file_id_range(dwin_update_t *update);
 
+/*
+ * Responsável por inicializar os valores internos usados pela
+ * máquina de estados após a validação do arquivo.
+ */
 void dwin_update_init_values(dwin_update_t *update);
 /*******************************************************************************
  * End

@@ -11,6 +11,7 @@
  ******************************************************************************/
 #include "dwin_update_file_handler.h"
 #include <string.h>
+#include <ctype.h>
 /*******************************************************************************
  * Data types
  ******************************************************************************/
@@ -37,6 +38,10 @@ static uint32_t dwin_update_calculate_total_ids(dwin_update_t *update);
  * Known issues:
  * Note:
  ******************************************************************************/
+/*
+ * Responsável por identificar a extensão do arquivo e armazená-la
+ * na estrutura da atualização.
+ */
 bool dwin_update_extension_handler(dwin_update_t *update)
 {
   if(!dwin_update_file_get_extension(update->file->name, &update->extension))
@@ -47,6 +52,10 @@ bool dwin_update_extension_handler(dwin_update_t *update)
   return true;
 }
 
+/*
+ * Responsável por validar o tamanho do arquivo e calcular os valores
+ * necessários para sua distribuição na memória.
+ */
 bool dwin_update_file_size_handler(sl_status_t *status, dwin_update_t *update)
 {
   if(update->file->size == 0U)
@@ -69,6 +78,10 @@ bool dwin_update_file_size_handler(sl_status_t *status, dwin_update_t *update)
   return true;
 }
 
+/*
+ * Responsável por determinar o método de atualização com base
+ * no nome e no tipo do arquivo.
+ */
 bool dwin_update_identify_file_handler(dwin_update_t *update)
 {
   if(dwin_update_file_get_id(update->file->name, &update->id))
@@ -89,6 +102,10 @@ bool dwin_update_identify_file_handler(dwin_update_t *update)
   return false;
 }
 
+/*
+ * Responsável por verificar se todos os IDs físicos necessários
+ * pelo arquivo estão dentro da faixa suportada.
+ */
 bool dwin_update_validate_file_id_range(dwin_update_t *update)
 {
   uint32_t total_ids;
@@ -112,6 +129,10 @@ bool dwin_update_validate_file_id_range(dwin_update_t *update)
   return true;
 }
 
+/*
+ * Responsável por inicializar os offsets, endereço RAM, bloco inicial,
+ * tamanho do bloco e demais parâmetros da máquina de estados.
+ */
 void dwin_update_init_values(dwin_update_t *update)
 {
   update->file_offset = 0U;
@@ -149,6 +170,10 @@ void dwin_update_init_values(dwin_update_t *update)
   update->error = DWIN_UPDATE_ERROR_NONE;
 }
 
+/*
+ * Responsável por extrair a extensão do nome do arquivo e convertê-la
+ * para o tipo de extensão utilizado pela atualização.
+ */
 static bool dwin_update_file_get_extension(const char *filename, dwin_update_extension_t *file_extension)
 {
   const char *extension;
@@ -196,6 +221,10 @@ static bool dwin_update_file_get_extension(const char *filename, dwin_update_ext
   return true;
 }
 
+/*
+ * Responsável por extrair a extensão do nome do arquivo e convertê-la
+ * para o tipo de extensão utilizado pela atualização.
+ */
 static bool dwin_update_file_get_id(const char *filename, uint8_t *file_id)
 {
   uint32_t value = 0U;
@@ -238,11 +267,28 @@ static bool dwin_update_file_get_id(const char *filename, uint8_t *file_id)
   return true;
 }
 
+/*
+ * Responsável por converter um ID lógico de arquivo no endereço do
+ * primeiro bloco físico correspondente na Flash.
+ */
 static uint32_t file_id_to_flash_block(uint8_t file_id)
 {
   return (uint32_t)file_id * 8U;
 }
 
+/*
+ * Responsável por calcular quantos IDs lógicos são necessários para
+ * armazenar o arquivo.
+ */
+static uint32_t dwin_update_calculate_total_ids(dwin_update_t *update)
+{
+  return (update->file_size + DWIN_UPDATE_FILE_ID_SIZE - 1U) / DWIN_UPDATE_FILE_ID_SIZE;
+}
+
+/*
+ * Responsável por calcular quantos blocos físicos serão necessários
+ * para armazenar o arquivo.
+ */
 static uint32_t dwin_update_calculate_total_blocks(dwin_update_t *update)
 {
   uint32_t total_ids;
@@ -254,9 +300,4 @@ static uint32_t dwin_update_calculate_total_blocks(dwin_update_t *update)
 
   total_ids = dwin_update_calculate_total_ids(update);
   return total_ids * DWIN_UPDATE_BLOCKS_PER_FILE_ID_0XAA;
-}
-
-static uint32_t dwin_update_calculate_total_ids(dwin_update_t *update)
-{
-  return (update->file_size + DWIN_UPDATE_FILE_ID_SIZE - 1U) / DWIN_UPDATE_FILE_ID_SIZE;
 }

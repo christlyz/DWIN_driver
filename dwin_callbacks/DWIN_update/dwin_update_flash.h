@@ -37,7 +37,6 @@
  * Defines
  ******************************************************************************/
 #define DWIN_UPDATE_VP_EXTERNAL_FLASH 0x00AAU
-
 #define DWIN_UPDATE_FLASH_STATUS_TIMEOUT_MS 1000U
 /*******************************************************************************
  * Typedef & Enums
@@ -46,8 +45,16 @@
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
+/*
+ * Responsável por enviar à DWIN o comando para gravar o bloco
+ * atualmente armazenado na RAM para a Flash externa.
+ */
 sl_status_t dwin_update_flash_write_block();
 
+/*
+ * Responsável por solicitar à DWIN o status da operação de gravação
+ * da Flash externa.
+ */
 sl_status_t dwin_update_flash_request_status(void);
 /*******************************************************************************
  * End

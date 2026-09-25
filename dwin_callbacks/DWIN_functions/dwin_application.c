@@ -10,6 +10,7 @@
  * Includes
  ******************************************************************************/
 #include "dwin_application.h"
+#include <stdio.h>
 /*******************************************************************************
  * Data types
  ******************************************************************************/
@@ -61,7 +62,7 @@ void application_init()
       DWIN_CMD_READ,
       true,
       DWIN_BUTTON_FIRE,
-      update_callback);
+      fire_button_callback);
 
   dwin_register_callback(
       DWIN_VP_ACTION_BUTTON,
@@ -108,7 +109,7 @@ void application_init()
 //  dwin_play_buzzer_ms(250);
 
   sl_zigbee_event_init(&update_event, update_handler);
-//  sl_zigbee_event_set_delay_ms(&update_event, 5000);
+  sl_zigbee_event_set_delay_ms(&update_event, 5000);
 }
 
 static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)

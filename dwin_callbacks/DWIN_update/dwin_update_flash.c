@@ -10,6 +10,9 @@
  * Includes
  ******************************************************************************/
 #include "dwin_update_flash.h"
+#include "dwin_update_internal.h"
+
+#include <stdio.h>
 /*******************************************************************************
  * Data types
  ******************************************************************************/
@@ -37,6 +40,10 @@ static void dwin_update_flash_write_ack_callback(sl_status_t status, uint16_t vp
  * Known issues:
  * Note:
  ******************************************************************************/
+/*
+ * Responsável por montar e enviar o comando 0xAA/0x02 para gravar
+ * o bloco atual da RAM na Flash externa da DWIN.
+ */
 sl_status_t dwin_update_flash_write_block()
 {
   uint8_t data[12];
@@ -66,6 +73,11 @@ sl_status_t dwin_update_flash_write_block()
                              NULL);
 }
 
+/*
+ * Responsável por tratar o ACK do comando de gravação da Flash
+ * e encaminhar a máquina de estados para a espera do término
+ * da operação.
+ */
 static void dwin_update_flash_write_ack_callback(sl_status_t status, uint16_t vp, void *context)
 {
   (void)vp;
@@ -94,6 +106,11 @@ static void dwin_update_flash_write_ack_callback(sl_status_t status, uint16_t vp
   update.flash_status_pending = false;
   update.state = DWIN_UPDATE_STATE_WAIT_FLASH;
 }
+
+/*
+ * Responsável por solicitar de forma assíncrona o status atual
+ * da operação de gravação da Flash.
+ */
 sl_status_t dwin_update_flash_request_status(void)
 {
   return dwin_read_vp_async(DWIN_UPDATE_VP_EXTERNAL_FLASH,
@@ -102,6 +119,10 @@ sl_status_t dwin_update_flash_request_status(void)
                             dwin_update_flash_status_callback);
 }
 
+/*
+ * Responsável por interpretar a resposta de status da Flash,
+ * distinguindo uma gravação em andamento de uma gravação concluída.
+ */
 static void dwin_update_flash_status_callback(sl_status_t status,
                                   uint16_t vp,
                                   const uint8_t *data,

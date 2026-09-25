@@ -49,8 +49,21 @@ typedef struct
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
+/*
+ * Responsável por abrir ou preparar a fonte do arquivo para leitura.
+ */
 bool dwin_update_file_open(dwin_update_file_t *file, const char *name, const uint8_t *data, size_t size);
+
+/*
+ * Responsável por ler uma quantidade de bytes a partir da posição
+ * atual do arquivo.
+ */
 bool dwin_update_file_read(dwin_update_file_t *file, uint8_t *buffer, size_t size, size_t *bytes_read);
+
+/*
+ * Responsável por finalizar o uso do arquivo e liberar os recursos
+ * associados à sua leitura.
+ */
 void dwin_update_file_close(dwin_update_file_t *file);
 /*******************************************************************************
  * End

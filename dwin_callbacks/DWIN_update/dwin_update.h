@@ -24,17 +24,14 @@
 /*******************************************************************************
  * Includes
  ******************************************************************************/
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <ctype.h>
 
 #include "sl_status.h"
+
 #include "dwin_file.h"
-#include "../DWIN_functions/dwin_service.h"
-#include "../DWIN_functions/dwin_widget.h"
+//#include "../DWIN_functions/dwin_service.h"
+//#include "../DWIN_functions/dwin_widget.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -42,20 +39,7 @@
 /*******************************************************************************
  * Defines
  ******************************************************************************/
-#define DWIN_UPDATE_BUFFER_SIZE 480U
-#define DWIN_UPDATE_PACKET_SIZE 240U
-#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06 (28U * 1024)
 
-#define DWIN_UPDATE_RAM_START         0x8000U
-
-#define DWIN_UPDATE_FILL_VALUE  0x00U
-
-#define DWIN_UPDATE_MAX_RETRIES 3U
-
-#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA (32U * 1024)
-
-#define DWIN_UPDATE_FLASH_WRITE_TIMEOUT_MS 1000U
-#define DWIN_UPDATE_RAM_WRITE_TIMEOUT_MS   1000U
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
@@ -93,79 +77,34 @@ typedef enum
   DWIN_UPDATE_ERROR_RETRY
 } dwin_update_error_t;
 
-typedef enum
-{
-  DWIN_UPDATE_METHOD_INVALID,
-  DWIN_UPDATE_METHOD_0xAA,
-  DWIN_UPDATE_METHOD_0x06
-} dwin_update_method_t;
-
-typedef enum
-{
-  DWIN_UPDATE_EXTENSION_BIN,
-  DWIN_UPDATE_EXTENSION_HZK,
-  DWIN_UPDATE_EXTENSION_ICL,
-  DWIN_UPDATE_EXTENSION_WAE,
-  DWIN_UPDATE_EXTENSION_ERROR
-} dwin_update_extension_t;
-
-typedef struct
-{
-  dwin_update_file_t *file;
-
-  uint8_t id;
-  dwin_update_extension_t extension;
-  dwin_update_method_t method;
-
-  uint32_t file_size;
-  uint32_t file_offset;
-
-  uint32_t file_id_base_block;
-  uint32_t total_blocks;
-  uint32_t current_block;
-
-  uint32_t block_offset;
-  uint32_t current_block_size;
-  uint32_t block_file_offset;
-
-  size_t current_packet_size;
-  size_t buffer_offset;
-
-  uint16_t ram_address;
-
-  uint8_t buffer[DWIN_UPDATE_BUFFER_SIZE];
-  size_t buffer_size;
-
-  bool flash_status_pending;
-
-  uint8_t ram_retry_count;
-  uint8_t flash_retry_count;
-  uint8_t flash_status_retry_count;
-
-  uint8_t progress;
-
-  dwin_update_state_t state;
-  dwin_update_error_t error;
-
-  bool active;
-} dwin_update_t;
-
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
 sl_status_t dwin_update_open_file(const char *filename);
 
+/*
+ * Responsável por iniciar a atualização de um arquivo.
+ */
 sl_status_t dwin_update_start(dwin_update_file_t *file, bool *finish);
 
-void dwin_update_process(void);
-
+/*
+ * Responsável por verificar se existe uma atualização em andamento.
+ */
 bool dwin_update_is_active(void);
 
+/*
+ * Responsável por retornar o estado atual da atualização.
+ */
 dwin_update_state_t dwin_update_get_state(void);
 
+/*
+ * Responsável por retornar o último erro ocorrido na atualização.
+ */
 dwin_update_error_t dwin_update_get_error(void);
-bool dwin_update_is_recoverable_error(sl_status_t status);
 
+/*
+ * Responsável por retornar o progresso atual da atualização.
+ */
 uint8_t dwin_update_get_progress(void);
 /*******************************************************************************
  * End

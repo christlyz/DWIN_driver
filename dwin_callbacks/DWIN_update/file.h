@@ -27,6 +27,7 @@
 #include "sl_status.h"
 #include "dwin_update.h"
 #include "dwin_file.h"
+#include "../DWIN_functions/dwin_service.h"
 
 #include "../Files/32.h"
 #include "../Files/32img.h"
@@ -51,6 +52,7 @@ typedef enum
   DWIN_60,
   DWIN_62,
   DWIN_63,
+  INIT_PROGRESS,
   DWIN_RESET
 } files;
 /*******************************************************************************
