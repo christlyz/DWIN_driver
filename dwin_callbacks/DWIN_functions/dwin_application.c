@@ -33,8 +33,6 @@ static void ok_button_callback(uint16_t vp, const uint8_t *data, size_t data_siz
 static void return_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void input_text_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void enable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void disable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 /*******************************************************************************
  * Function name:
  *
@@ -65,7 +63,6 @@ void application_init()
       DWIN_BUTTON_FIRE,
       update_callback);
 
-
   dwin_register_callback(
       DWIN_VP_ACTION_BUTTON,
       DWIN_CMD_READ,
@@ -94,26 +91,12 @@ void application_init()
       0,
       input_text_callback);
 
-//  dwin_register_callback(
-//      DWIN_VP_SECOND_TEXT,
-//      DWIN_CMD_READ,
-//      false,
-//      0,
-//      input_text_callback);
-
   dwin_register_callback(
       DWIN_VP_SECOND_TEXT,
       DWIN_CMD_READ,
-      true,
-      0x4543,
-      enable_crc_callback);
-
-  dwin_register_callback(
-      DWIN_VP_SECOND_TEXT,
-      DWIN_CMD_READ,
-      true,
-      0x4443,
-      disable_crc_callback);
+      false,
+      0,
+      input_text_callback);
 
   dwin_register_callback(
       DWIN_VP_THIRD_TEXT,
@@ -186,16 +169,6 @@ static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, 
   sl_zigbee_event_set_delay_ms(&update_event, 100);
 }
 
-static void enable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
-{
-  dwin_enable_crc();
-}
-
-static void disable_crc_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
-{
-  dwin_disable_crc();
-}
-
 void update_handler(sl_zigbee_event_t *event)
 {
   sl_status_t status;
@@ -206,8 +179,6 @@ void update_handler(sl_zigbee_event_t *event)
     }
   else
     {
-      my_dwin->brightness = 100;
-      dwin_configure_device();
       sl_zigbee_event_set_inactive(&update_event);
     }
 }

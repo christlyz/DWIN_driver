@@ -51,6 +51,9 @@ static dwin_pending_write_t pending_write;
 static sl_zigbee_event_t check_timeout_event;
 static void check_timeout_handler(sl_zigbee_event_t *event);
 
+static sl_zigbee_event_t configure_event;
+void configure_handler(sl_zigbee_event_t *event);
+
 static bool is_timeout_initialized = false;
 
 static uint8_t rx_buffer[DWIN_MAX_PACKET_SIZE];
@@ -70,6 +73,7 @@ static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const ui
 static void device_configuration_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void standby_handle(bool activated, uint8_t *settings);
 static void touch_sound_handle(bool activated, uint8_t *settings);
+static void rotation_handle(uint8_t rotation, uint8_t *settings);
 static sl_status_t dwin_config_brightness(uint8_t default_brightness, uint8_t standby_brightness, uint16_t backlight_delay_ms);
 static bool dwin_receive_bytes(void);
 static void dwin_enable_crc_callback(sl_status_t status, uint16_t vp, void *context);
@@ -107,6 +111,7 @@ dwin_config_t* dwin_get_config()
   dwin->standby_brightness_activated = DWIN_DEFAULT_STANDBY_ACTIVATED;
   dwin->touch_sound_activated = DWIN_DEFAULT_TOUCH_SOUND_ACTIVATED;
   dwin->crc_activated = DWIN_DEFAULT_CRC_ACTIVATED;
+  dwin->rotation = DWIN_DEFAULT_SCREEN_ROTATION;
 
   return dwin;
 }
@@ -119,16 +124,24 @@ sl_status_t dwin_configure_device()
   if(dwin == NULL)
     return SL_STATUS_NULL_POINTER;
 
+  sl_zigbee_event_init(&configure_event, configure_handler);
+  sl_zigbee_event_set_delay_ms(&configure_event, 2500);
+
+  return SL_STATUS_OK;
+}
+
+void configure_handler(sl_zigbee_event_t *event)
+{
   sl_status_t status = dwin_config_brightness(dwin->brightness, dwin->standby_brightness, dwin->standby_timeout);
   if(status != SL_STATUS_OK)
-    return status;
+    return;
 
   status = dwin_read_vp_async(DWIN_VP_SYSTEM_CONFIG,
                             2,
                             5000,
                             device_configuration_callback);
 
-  return status;
+  sl_zigbee_event_set_inactive(&configure_event);
 }
 
 /*
@@ -146,7 +159,7 @@ static void device_configuration_callback(sl_status_t status, uint16_t vp, const
 
   standby_handle(dwin->standby_brightness_activated, &settings);
   touch_sound_handle(dwin->touch_sound_activated, &settings);
-
+  rotation_handle(dwin->rotation, &settings);
   uint8_t new_data[4];
 
   new_data[0] = 0x5A;
@@ -179,6 +192,11 @@ static void touch_sound_handle(bool activated, uint8_t *settings)
     *settings &= ~DWIN_TOUCH_SOUND_BIT_CONTROL;
 }
 
+
+static void rotation_handle(uint8_t rotation, uint8_t *settings)
+{
+  *settings = (*settings & 0xFCU) | rotation;
+}
 /*
  * Configura o brilho atual, o brilho em standby e o tempo até standby (milissegundos)
  */
@@ -674,6 +692,7 @@ sl_status_t dwin_reset()
              data,
              sizeof(data));
 
+  dwin_configure_device();
   if(status == SL_STATUS_OK)
     {
       printf("Tela reiniciada\r\n");

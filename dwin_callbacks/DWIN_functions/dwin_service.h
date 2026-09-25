@@ -47,7 +47,7 @@
 #define DWIN_DEFAULT_STANDBY_ACTIVATED        0
 #define DWIN_DEFAULT_TOUCH_SOUND_ACTIVATED    0
 #define DWIN_DEFAULT_CRC_ACTIVATED            0
-
+#define DWIN_DEFAULT_SCREEN_ROTATION          DWIN_SCREEN_270_DEGREES
 #define DWIN_PAGE_ENABLE  0x5A
 #define DWIN_PAGE_SWITCH  0x01
 
@@ -56,6 +56,11 @@
 
 #define DWIN_CMD_WRITE  0x82
 #define DWIN_CMD_READ   0x83
+
+#define DWIN_SCREEN_00_DEGREES    0
+#define DWIN_SCREEN_90_DEGREES    1
+#define DWIN_SCREEN_180_DEGREES   2
+#define DWIN_SCREEN_270_DEGREES   3
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
@@ -64,6 +69,7 @@ typedef struct
   bool standby_brightness_activated;
   bool touch_sound_activated;
   bool crc_activated;
+  uint8_t rotation;
   uint8_t brightness;
   uint8_t standby_brightness;
   uint16_t standby_timeout;
@@ -96,7 +102,6 @@ sl_status_t dwin_cancel_read_vp(uint16_t vp);
 
 sl_status_t dwin_register_callback(uint16_t vp, uint8_t instruction, bool expect_data, uint16_t expected_data, dwin_vp_callback_t callback);
 sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t expected_data);
-
 
 sl_status_t dwin_write_vp_async(uint16_t vp, uint8_t *data, size_t data_size, uint32_t timeout_ms, dwin_write_ack_callback_t callback, void *context);
 

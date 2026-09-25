@@ -632,7 +632,7 @@ static void dwin_update_case_next_block(sl_status_t *status)
       update.current_block -
       update.file_id_base_block;
 
-  printf("Bloco %ld completo, atualização %u%% completa\r\n", blocks_completed, update.progress);
+  printf("Bloco %ld completo, atualizacao %u%% completa\r\n", blocks_completed, update.progress);
 
   /*
    * O último bloco necessário para todos os IDs já foi
