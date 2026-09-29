@@ -30,6 +30,7 @@ sl_status_t load_next_chunk(void)
       update.error = DWIN_UPDATE_ERROR_FILE_SIZE;
       return SL_STATUS_INVALID_STATE;
     }
+
   /*
    * O bloco atual já está completo
    */

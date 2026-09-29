@@ -78,65 +78,6 @@ sl_status_t dwin_update_open_file(const char *filename)
   return SL_STATUS_NOT_READY;
 }
 
-static uint32_t dwin_update_get_block_size(void)
-{
-  switch(update.method)
-  {
-    case DWIN_UPDATE_METHOD_0xAA:
-      return DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
-
-    case DWIN_UPDATE_METHOD_0x06:
-      return DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06;
-
-    default:
-      return 0U;
-  }
-}
-
-//static sl_status_t dwin_os_update_block(uint16_t flash_block,
-//                                        uint16_t ram_address,
-//                                        uint16_t delay_ms)
-//{
-//  /*
-//   * Ainda será implementado a atualização do arquivo DWINOS, retorno somente para não gerar erro
-//   */
-//  return SL_STATUS_NOT_READY;
-//}
-
-/*
- * Responsável por inicializar o evento responsável pelo processamento
- * periódico da atualização.
- */
-static void init_update_event(void)
-{
-  if(update_event_initialized)
-    return;
-
-  sl_zigbee_event_init(&dwin_update_event, update_event_handler);
-
-  update_event_initialized = true;
-}
-
-/*
- * Responsável por executar uma iteração da atualização através
- * do evento do Zigbee.
- */
-static void update_event_handler(sl_zigbee_event_t *event)
-{
-  (void)event;
-
-  dwin_update_process();
-
-  if(update.active)
-    {
-      sl_zigbee_event_set_delay_ms(&dwin_update_event, 10U);
-    }
-  else
-    {
-      sl_zigbee_event_set_inactive(&dwin_update_event);
-    }
-}
-
 /*
  * Responsável por iniciar uma nova atualização.
  */
@@ -191,6 +132,65 @@ sl_status_t dwin_update_start(dwin_update_file_t *file, bool *finish)
   sl_zigbee_event_set_delay_ms(&dwin_update_event, 10U);
 
   return SL_STATUS_OK;
+}
+
+static uint32_t dwin_update_get_block_size(void)
+{
+  switch(update.method)
+  {
+    case DWIN_UPDATE_METHOD_0xAA:
+      return DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
+
+    case DWIN_UPDATE_METHOD_0x06:
+      return DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06;
+
+    default:
+      return 0U;
+  }
+}
+
+//static sl_status_t dwin_os_update_block(uint16_t flash_block,
+//                                        uint16_t ram_address,
+//                                        uint16_t delay_ms)
+//{
+//  /*
+//   * Ainda será implementado a atualização do arquivo DWINOS, retorno somente para não gerar erro
+//   */
+//  return SL_STATUS_NOT_READY;
+//}
+
+/*
+ * Responsável por inicializar o evento responsável pelo processamento
+ * periódico da atualização.
+ */
+static void init_update_event(void)
+{
+  if(update_event_initialized)
+    return;
+
+  sl_zigbee_event_init(&dwin_update_event, update_event_handler);
+
+  update_event_initialized = true;
+}
+
+/*
+ * Responsável por executar uma iteração da atualização através
+ * do evento do Zigbee.
+ */
+static void update_event_handler(sl_zigbee_event_t *event)
+{
+  (void)event;
+
+  dwin_update_process();
+
+  if(update.active)
+    {
+      sl_zigbee_event_set_delay_ms(&dwin_update_event, 2U);
+    }
+  else
+    {
+      sl_zigbee_event_set_inactive(&dwin_update_event);
+    }
 }
 
 /*

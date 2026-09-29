@@ -29,10 +29,12 @@
 #include "dwin_file.h"
 #include "../DWIN_functions/dwin_service.h"
 
-#include "../Files/32.h"
 #include "../Files/dwin_test_file_13_touch_file_vector.h"
-#include "../Files/dwin_test_file_14_show_file_vector.h"
-#include "../Files/dwin_test_file_22_config_vector.h"
+#include "../Files/14ShowFile.h"
+#include "../Files/22_Config.h"
+#include "../Files/32.h"
+#include "../Files/59.h"
+#include "../Files/63.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/
@@ -44,6 +46,12 @@
 /*******************************************************************************
  * Typedef & Enums
  ******************************************************************************/
+typedef struct file_node
+{
+  dwin_update_file_t *file;
+  struct file_node *next;
+} file_node_t;
+
 typedef enum
 {
   FILE_UPDATE_STATE_INIT,
@@ -55,12 +63,14 @@ typedef enum
   FILE_UPDATE_STATE_ERROR
 } files_update_state_t;
 
+//file_node_t *file_list;
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
 sl_status_t start_update();
 sl_status_t file_list_add(dwin_update_file_t *file);
 void file_list_clear(void);
+sl_status_t file_list_build(void);
 /*******************************************************************************
  * End
  ******************************************************************************/

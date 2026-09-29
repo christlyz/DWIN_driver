@@ -15,13 +15,7 @@
 /*******************************************************************************
  * Data types
  ******************************************************************************/
-typedef struct file_node
-{
-  dwin_update_file_t *file;
-  struct file_node *next;
-} file_node_t;
-
-static file_node_t *file_list = NULL;
+file_node_t *file_list;
 static file_node_t *current_node = NULL;
 
 static bool finished = false;
@@ -32,7 +26,6 @@ static files_update_state_t state;
 
 static sl_zigbee_event_t progress_event;
 static void progress_handler(sl_zigbee_event_t *event);
-static sl_status_t file_list_build(void);
 /*******************************************************************************
  * Extern
  ******************************************************************************/
@@ -264,7 +257,7 @@ void file_list_clear(void)
 /*
  * Responsável por registrar todos os arquivos disponíveis para a atualização
  */
-static sl_status_t file_list_build(void)
+sl_status_t file_list_build(void)
 {
   sl_status_t status;
 
@@ -288,12 +281,26 @@ static sl_status_t file_list_build(void)
     {
       return status;
     }
-
-  status = file_list_add(get_file_32());
-
-  if(status != SL_STATUS_OK)
-    {
-      return status;
-    }
+//
+//  status = file_list_add(get_file_32());
+//
+//  if(status != SL_STATUS_OK)
+//    {
+//      return status;
+//    }
+//
+//  status = file_list_add(get_file_59());
+//
+//  if(status != SL_STATUS_OK)
+//    {
+//      return status;
+//    }
+//
+//  status = file_list_add(get_file_63());
+//
+//  if(status != SL_STATUS_OK)
+//    {
+//      return status;
+//    }
   return status;
 }

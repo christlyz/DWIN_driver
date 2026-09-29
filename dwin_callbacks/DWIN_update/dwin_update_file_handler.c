@@ -207,6 +207,26 @@ static bool dwin_update_file_get_extension(const char *filename, dwin_update_ext
       *file_extension = DWIN_UPDATE_EXTENSION_HZK;
       return true;
     }
+  else if(strcmp(extension, "DZK") == 0 || strcmp(extension, "dzk") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_DZK;
+      return true;
+    }
+  else if(strcmp(extension, "GTF") == 0 || strcmp(extension, "gtf") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_GTF;
+      return true;
+    }
+  else if(strcmp(extension, "UIC") == 0 || strcmp(extension, "uic") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_UIC;
+      return true;
+    }
+  else if(strcmp(extension, "BIN") == 0 || strcmp(extension, "bin") == 0)
+    {
+      *file_extension = DWIN_UPDATE_EXTENSION_BIN;
+      return true;
+    }
   else if(strcmp(extension, "WAE") == 0 || strcmp(extension, "wae") == 0)
     {
       *file_extension = DWIN_UPDATE_EXTENSION_WAE;
