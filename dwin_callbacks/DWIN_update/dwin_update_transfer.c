@@ -267,11 +267,6 @@ void dwin_update_ram_write_ack_callback(sl_status_t status, uint16_t vp, void *c
   /*
    * O buffer atual terminou, mas o bloco de 32Kib ainda não
    */
-  if(update.block_offset < update.current_block_size)
-    {
-      update.state = DWIN_UPDATE_STATE_LOAD_BLOCK;
-      return;
-    }
+  update.state = update.block_offset < update.current_block_size ? DWIN_UPDATE_STATE_LOAD_BLOCK : DWIN_UPDATE_STATE_FLASH_WRITE;
 
-  update.state = DWIN_UPDATE_STATE_FLASH_WRITE;
 }

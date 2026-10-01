@@ -1,10 +1,10 @@
-#ifndef ICL59_H_
-#define ICL59_H_
+﻿#ifndef FILE_62_H
+#define FILE_62_H
 
 #include "../DWIN_update/dwin_file.h"
 #include "../DWIN_update/dwin_update.h"
 #include <stdint.h>
 
-dwin_update_file_t* get_file_59();
+dwin_update_file_t* get_file_62(void);
 
-#endif
+#endif /* FILE_62_H */

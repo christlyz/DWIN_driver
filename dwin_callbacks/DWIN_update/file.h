@@ -29,12 +29,13 @@
 #include "dwin_file.h"
 #include "../DWIN_functions/dwin_service.h"
 
-#include "../Files/dwin_test_file_13_touch_file_vector.h"
+#include "../Files/13TouchFile.h"
 #include "../Files/14ShowFile.h"
-#include "../Files/22_Config.h"
-#include "../Files/32.h"
-#include "../Files/59.h"
-#include "../Files/63.h"
+#include "../Files/22Config.h"
+//#include "../Files/32.h"
+#include "../Files/5.h"
+#include "../Files/60.h"
+#include "../Files/62.h"
 /*******************************************************************************
  * Macros
  ******************************************************************************/

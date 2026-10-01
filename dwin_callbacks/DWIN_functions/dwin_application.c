@@ -11,6 +11,7 @@
  ******************************************************************************/
 #include "dwin_application.h"
 #include <stdio.h>
+#include "../DWIN_update/file.h"
 /*******************************************************************************
  * Data types
  ******************************************************************************/
@@ -19,8 +20,8 @@ sl_zigbee_event_t change_page_callback;
 void change_page_handler(sl_zigbee_event_t *event);
 static sl_zigbee_event_t update_event;
 static void update_handler(sl_zigbee_event_t *event);
-static sl_zigbee_event_t test_update_event;
-static void test_update_handler(sl_zigbee_event_t *event);
+//static sl_zigbee_event_t test_update_event;
+//static void test_update_handler(sl_zigbee_event_t *event);
 dwin_config_t *my_dwin;
 
 /*******************************************************************************
@@ -110,22 +111,28 @@ void application_init()
 
 //  dwin_play_buzzer_ms(250);
 
-  dwin_update_test_init();
-  file_list_build();
+//  dwin_update_test_init();
+//  file_list_build();
+//  dwin_update_test_set_file(get_file_32());
+//
+//  sl_status_t status;
+//  status = dwin_update_test_start_all();
+//
+//  if(status != SL_STATUS_OK)
+//    {
+//      printf("Falha ao iniciar teste: 0x%08lx\r\n", status);
+//    }
+//  else
+//    {
+//      sl_zigbee_event_init(&test_update_event, test_update_handler);
+//      sl_zigbee_event_set_delay_ms(&test_update_event, 5000);
+//
+//    }
 
-  sl_status_t status;
-  status = dwin_update_test_start(DWIN_UPDATE_TEST_EMPTY_FILE);
+//  sl_zigbee_event_init(&update_event, update_handler);
+//  sl_zigbee_event_set_delay_ms(&update_event, 5000);
 
-  if(status != SL_STATUS_OK)
-    {
-      printf("Falha ao iniciar teste: 0x%08lx\r\n", status);
-    }
-  else
-    {
-      sl_zigbee_event_init(&test_update_event, test_update_handler);
-      sl_zigbee_event_set_delay_ms(&test_update_event, 5000);
-
-    }
+//  dwin_change_page(3);
 }
 
 static void fire_button_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -198,41 +205,40 @@ void update_handler(sl_zigbee_event_t *event)
     }
   else
     {
-      dwin_update_test_print_summary();
       sl_zigbee_event_set_inactive(&update_event);
     }
 }
 
-static void test_update_handler(sl_zigbee_event_t *event)
-{
-  (void)event;
-
-  dwin_update_test_process();
-
-  if(dwin_update_test_is_active())
-    {
-      sl_zigbee_event_set_delay_ms(&test_update_event, 100);
-    }
-  else
-    {
-      dwin_update_test_result_t result;
-
-      result = dwin_update_test_get_current_result();
-
-      if (result == DWIN_UPDATE_TEST_RESULT_PASS) {
-        printf("TESTE PASSOU\r\n");
-      }
-      else if (result == DWIN_UPDATE_TEST_RESULT_FAIL) {
-        printf("TESTE FALHOU\r\n");
-      }
-      else if (result == DWIN_UPDATE_TEST_RESULT_NOT_SUPPORTED) {
-        printf("TESTE NAO SUPORTADO\r\n");
-      }
-
-      printf("Status: 0x%08lx\r\n",
-             dwin_update_test_get_last_status());
-
-      dwin_update_test_print_summary();
-      sl_zigbee_event_set_inactive(&test_update_event);
-    }
-}
+//static void test_update_handler(sl_zigbee_event_t *event)
+//{
+//  (void)event;
+//
+//  dwin_update_test_process();
+//
+//  if(dwin_update_test_is_active())
+//    {
+//      sl_zigbee_event_set_delay_ms(&test_update_event, 100);
+//    }
+//  else
+//    {
+//      dwin_update_test_result_t result;
+//
+//      result = dwin_update_test_get_current_result();
+//
+//      if (result == DWIN_UPDATE_TEST_RESULT_PASS) {
+//        printf("TESTE PASSOU\r\n");
+//      }
+//      else if (result == DWIN_UPDATE_TEST_RESULT_FAIL) {
+//        printf("TESTE FALHOU\r\n");
+//      }
+//      else if (result == DWIN_UPDATE_TEST_RESULT_NOT_SUPPORTED) {
+//        printf("TESTE NAO SUPORTADO\r\n");
+//      }
+//
+//      printf("Status: 0x%08lx\r\n",
+//             dwin_update_test_get_last_status());
+//
+//      dwin_update_test_print_summary();
+//      sl_zigbee_event_set_inactive(&test_update_event);
+//    }
+//}

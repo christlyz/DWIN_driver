@@ -261,46 +261,53 @@ sl_status_t file_list_build(void)
 {
   sl_status_t status;
 
-  status = file_list_add(get_file_13());
+  status = file_list_add(get_file_5());
 
   if(status != SL_STATUS_OK)
     {
       return status;
     }
 
-  status = file_list_add(get_file_14());
+  status = file_list_add(get_file_13TouchFile());
 
   if(status != SL_STATUS_OK)
     {
       return status;
     }
 
-  status = file_list_add(get_file_22());
+  status = file_list_add(get_file_14ShowFile());
 
   if(status != SL_STATUS_OK)
     {
       return status;
     }
-//
+
+  status = file_list_add(get_file_22Config());
+
+  if(status != SL_STATUS_OK)
+    {
+      return status;
+    }
+
 //  status = file_list_add(get_file_32());
 //
 //  if(status != SL_STATUS_OK)
 //    {
 //      return status;
 //    }
-//
-//  status = file_list_add(get_file_59());
-//
-//  if(status != SL_STATUS_OK)
-//    {
-//      return status;
-//    }
-//
-//  status = file_list_add(get_file_63());
-//
-//  if(status != SL_STATUS_OK)
-//    {
-//      return status;
-//    }
+
+  status = file_list_add(get_file_60());
+
+  if(status != SL_STATUS_OK)
+    {
+      return status;
+    }
+
+  status = file_list_add(get_file_62());
+
+  if(status != SL_STATUS_OK)
+    {
+      return status;
+    }
   return status;
 }

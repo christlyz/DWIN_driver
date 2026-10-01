@@ -185,7 +185,7 @@ static void update_event_handler(sl_zigbee_event_t *event)
 
   if(update.active)
     {
-      sl_zigbee_event_set_delay_ms(&dwin_update_event, 2U);
+      sl_zigbee_event_set_delay_ms(&dwin_update_event, 10U);
     }
   else
     {

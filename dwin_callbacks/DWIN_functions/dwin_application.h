@@ -27,7 +27,7 @@
 #include "dwin_service.h"
 #include "dwin_widget.h"
 #include "../DWIN_update/file.h"
-#include "../DWIN_update/dwin_update_test.h"
+//#include "../DWIN_update/dwin_update_test.h"
 #include "zigbee_app_framework_event.h"
 /*******************************************************************************
  * Macros
