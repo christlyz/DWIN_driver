@@ -11,25 +11,17 @@
 #include "dwin_update.h"
 #include "dwin_file.h"
 
-#define DWIN_UPDATE_BUFFER_SIZE                  480U
+#define DWIN_UPDATE_BUFFER_SIZE                 480U
 #define DWIN_UPDATE_PACKET_SIZE                 240U
 
-#define DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06       (28U * 1024U)
 #define DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA       (32U * 1024U)
 
 #define DWIN_UPDATE_RAM_START                   0x8000U
 #define DWIN_UPDATE_FILL_VALUE                  0x00U
-#define DWIN_UPDATE_MAX_RETRIES                3U
+#define DWIN_UPDATE_MAX_RETRIES                 3U
 
 #define DWIN_UPDATE_FLASH_WRITE_TIMEOUT_MS      1000U
 #define DWIN_UPDATE_RAM_WRITE_TIMEOUT_MS        1000U
-
-typedef enum
-{
-  DWIN_UPDATE_METHOD_INVALID,
-  DWIN_UPDATE_METHOD_0xAA,
-  DWIN_UPDATE_METHOD_0x06
-} dwin_update_method_t;
 
 typedef enum
 {
@@ -49,7 +41,6 @@ typedef struct
 
   uint8_t id;
   dwin_update_extension_t extension;
-  dwin_update_method_t method;
 
   uint32_t file_size;
   uint32_t file_offset;

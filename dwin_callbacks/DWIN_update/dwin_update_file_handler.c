@@ -86,18 +86,9 @@ bool dwin_update_identify_file_handler(dwin_update_t *update)
 {
   if(dwin_update_file_get_id(update->file->name, &update->id))
     {
-      update->method = DWIN_UPDATE_METHOD_0xAA;
       return true;
     }
 
-  if(update->extension == DWIN_UPDATE_EXTENSION_BIN &&
-      strncmp(update->file->name, "DWINOS", 6U) == 0)
-    {
-      update->method = DWIN_UPDATE_METHOD_0x06;
-      return true;
-    }
-
-  update->method = DWIN_UPDATE_METHOD_INVALID;
   update->error = DWIN_UPDATE_ERROR_INVALID_FILE;
   return false;
 }
@@ -110,11 +101,6 @@ bool dwin_update_validate_file_id_range(dwin_update_t *update)
 {
   uint32_t total_ids;
   uint32_t last_id;
-
-  if(update->method != DWIN_UPDATE_METHOD_0xAA)
-    {
-      return true;
-    }
 
   total_ids = dwin_update_calculate_total_ids(update);
 
@@ -146,24 +132,14 @@ void dwin_update_init_values(dwin_update_t *update)
   update->flash_retry_count = 0U;
   update->flash_status_retry_count = 0U;
 
-  if(update->method == DWIN_UPDATE_METHOD_0xAA)
-    {
-      update->file_id_base_block = file_id_to_flash_block(update->id);
-      update->current_block = file_id_to_flash_block(update->id);
+  update->file_id_base_block = file_id_to_flash_block(update->id);
+  update->current_block = file_id_to_flash_block(update->id);
 
-      /*
-       * Quantidade total de blocos físicos necessários, incluindo o preenchimento do último ID.
-       */
-      update->total_blocks = dwin_update_calculate_total_blocks(update);
-      update->current_block_size = DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
-    }
-  else
-    {
-      update->file_id_base_block = 0U;
-      update->current_block = 0U;
-      update->total_blocks = 0U;
-      update->current_block_size = 0U;
-    }
+  /*
+   * Quantidade total de blocos físicos necessários, incluindo o preenchimento do último ID.
+   */
+  update->total_blocks = dwin_update_calculate_total_blocks(update);
+  update->current_block_size = DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
 
   update->active = true;
   update->state = DWIN_UPDATE_STATE_ENABLE_CRC;
@@ -312,11 +288,6 @@ static uint32_t dwin_update_calculate_total_ids(dwin_update_t *update)
 static uint32_t dwin_update_calculate_total_blocks(dwin_update_t *update)
 {
   uint32_t total_ids;
-
-  if(update->method != DWIN_UPDATE_METHOD_0xAA)
-    {
-      return 0U;
-    }
 
   total_ids = dwin_update_calculate_total_ids(update);
   return total_ids * DWIN_UPDATE_BLOCKS_PER_FILE_ID_0XAA;

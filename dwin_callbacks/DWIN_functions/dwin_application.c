@@ -129,8 +129,8 @@ void application_init()
 //
 //    }
 
-//  sl_zigbee_event_init(&update_event, update_handler);
-//  sl_zigbee_event_set_delay_ms(&update_event, 5000);
+  sl_zigbee_event_init(&update_event, update_handler);
+  sl_zigbee_event_set_delay_ms(&update_event, 5000);
 
 //  dwin_change_page(3);
 }

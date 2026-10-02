@@ -33,10 +33,6 @@ static bool *finished = NULL;
 /*******************************************************************************
  * Private Function Prototypes
  ******************************************************************************/
-static uint32_t dwin_update_get_block_size(void);
-//static sl_status_t dwin_os_update_block(uint16_t flash_block,
-//                                        uint16_t ram_address,
-//                                        uint16_t delay_ms);
 static void init_update_event(void);
 static void update_event_handler(sl_zigbee_event_t *event);
 static void dwin_update_process(void);
@@ -134,31 +130,6 @@ sl_status_t dwin_update_start(dwin_update_file_t *file, bool *finish)
   return SL_STATUS_OK;
 }
 
-static uint32_t dwin_update_get_block_size(void)
-{
-  switch(update.method)
-  {
-    case DWIN_UPDATE_METHOD_0xAA:
-      return DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
-
-    case DWIN_UPDATE_METHOD_0x06:
-      return DWIN_UPDATE_FLASH_BLOCK_SIZE_0X06;
-
-    default:
-      return 0U;
-  }
-}
-
-//static sl_status_t dwin_os_update_block(uint16_t flash_block,
-//                                        uint16_t ram_address,
-//                                        uint16_t delay_ms)
-//{
-//  /*
-//   * Ainda será implementado a atualização do arquivo DWINOS, retorno somente para não gerar erro
-//   */
-//  return SL_STATUS_NOT_READY;
-//}
-
 /*
  * Responsável por inicializar o evento responsável pelo processamento
  * periódico da atualização.
@@ -185,7 +156,7 @@ static void update_event_handler(sl_zigbee_event_t *event)
 
   if(update.active)
     {
-      sl_zigbee_event_set_delay_ms(&dwin_update_event, 10U);
+      sl_zigbee_event_set_delay_ms(&dwin_update_event, 2U);
     }
   else
     {
@@ -437,7 +408,7 @@ static void dwin_update_case_next_block(sl_status_t *status)
 
   update.current_block++;
 
-  update.current_block_size = dwin_update_get_block_size();
+  update.current_block_size = DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
 
   update.block_file_offset = update.file_offset;
 
@@ -621,7 +592,7 @@ void dwin_update_calculate_progress(void)
   uint64_t total_bytes;
   uint32_t block_size;
 
-  block_size = dwin_update_get_block_size();
+  block_size = DWIN_UPDATE_FLASH_BLOCK_SIZE_0XAA;
 
   if(update.total_blocks == 0U ||
       block_size == 0U)
@@ -675,7 +646,6 @@ dwin_update_error_t dwin_update_get_error(void)
 static void dwin_update_debug_print(void)
 {
   const char *extension_name;
-  const char *method_name;
 
   switch(update.extension)
   {
@@ -696,19 +666,6 @@ static void dwin_update_debug_print(void)
       break;
   }
 
-  switch(update.method)
-  {
-    case DWIN_UPDATE_METHOD_0xAA:
-      method_name = "0xAA";
-      break;
-    case DWIN_UPDATE_METHOD_0x06:
-      method_name = "0x06";
-      break;
-    default:
-      method_name = "INVALID";
-      break;
-  }
-
   printf("\r\n");
   printf("================================================\r\n");
   printf("DWIN UPDATE\r\n");
@@ -718,7 +675,7 @@ static void dwin_update_debug_print(void)
 
   printf("Extension: %s (%u)\r\n", extension_name, (unsigned)update.extension);
 
-  printf("Method: %s (%u)\r\n", method_name, (unsigned)update.method);
+  printf("Method: 0xAA\r\n");
 
   printf("File size: %lu bytes\r\n", (unsigned long)update.file_size);
 
