@@ -84,7 +84,8 @@ static void parse_read(const uint8_t *packet, size_t packet_size);
 static void parse_write(const uint8_t *packet, size_t packet_size);
 static void parse_ack(const uint8_t *packet, size_t packet_size);
 static uint16_t bytes_to_u16(uint8_t msb, uint8_t lsb);
-static void dwin_process_timeout();
+static void dwin_process_timeout_read();
+static void dwin_process_timeout_write();
 static void check_timeout_init();
 static void start_timeout();
 static void stop_timeout();
@@ -982,7 +983,7 @@ static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const ui
 /*
  * Verifica timeout de todas as exceções
  */
-static void dwin_process_timeout()
+static void dwin_process_timeout_read()
 {
   if(pending_read == NULL)
     return;
@@ -1006,6 +1007,13 @@ static void dwin_process_timeout()
         }
       current_pending = next_pending;
     }
+}
+
+static void dwin_process_timeout_write()
+{
+  uint32_t now = sl_sleeptimer_get_tick_count();
+  uint32_t elapsed_time;
+  uint16_t vp;
 
   if(pending_write.active)
     {
@@ -1023,13 +1031,13 @@ static void dwin_process_timeout()
         }
     }
 }
-
 /*
  * Callback de evento para verificar timeout de requisição
  */
 static void check_timeout_handler(sl_zigbee_event_t *event)
 {
-  dwin_process_timeout();
+  dwin_process_timeout_read();
+  dwin_process_timeout_write();
   sl_zigbee_event_set_delay_ms(&check_timeout_event, 100);
 }
 

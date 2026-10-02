@@ -12,6 +12,7 @@
 #include "dwin_update_internal.h"
 #include "../DWIN_functions/dwin_service.h"
 #include "zigbee_app_framework_event.h"
+#include "sl_sleeptimer.h"
 
 #include "dwin_update_file_handler.h"
 #include "dwin_update_transfer.h"
@@ -26,6 +27,8 @@ dwin_update_t update;
 static sl_zigbee_event_t dwin_update_event;
 static bool update_event_initialized = false;
 static bool *finished = NULL;
+static uint64_t update_start_tick = 0U;
+static uint64_t update_time_ms = 0U;
 /*******************************************************************************
  * Extern
  ******************************************************************************/
@@ -242,6 +245,7 @@ static void dwin_update_case_enable_crc(sl_status_t *status)
 {
   *status = dwin_enable_crc();
 
+  update_start_tick = sl_sleeptimer_get_tick_count64();
   if(*status != SL_STATUS_OK)
     {
       update.state = DWIN_UPDATE_STATE_ERROR;
@@ -256,6 +260,16 @@ static void dwin_update_case_enable_crc(sl_status_t *status)
  */
 static void dwin_update_case_wait_crc_enables(sl_status_t *status)
 {
+  sl_status_t time_status;
+  uint64_t elapsed_ticks;
+  elapsed_ticks = sl_sleeptimer_get_tick_count64() - update_start_tick;
+
+  time_status = sl_sleeptimer_tick64_to_ms(elapsed_ticks, &update_time_ms);
+  uint64_t seconds = (update_time_ms % 60000U) / 1000U;
+  if(seconds == 1U || time_status != SL_STATUS_OK)
+    {
+      update.state = DWIN_UPDATE_STATE_ERROR;
+    }
   if(dwin_is_crc_enabled())
     {
       update.state = DWIN_UPDATE_STATE_LOAD_BLOCK;
@@ -426,6 +440,8 @@ static void dwin_update_case_disable_crc(sl_status_t *status)
 {
   *status = dwin_disable_crc();
 
+  update_start_tick = sl_sleeptimer_get_tick_count64();
+
   if(*status != SL_STATUS_OK)
     {
       update.state = DWIN_UPDATE_STATE_ERROR;
@@ -441,6 +457,18 @@ static void dwin_update_case_disable_crc(sl_status_t *status)
 static void dwin_update_case_wait_crc_disable(sl_status_t *status)
 {
   (void) status;
+
+  sl_status_t time_status;
+  uint64_t elapsed_ticks;
+  elapsed_ticks = sl_sleeptimer_get_tick_count64() - update_start_tick;
+
+  time_status = sl_sleeptimer_tick64_to_ms(elapsed_ticks, &update_time_ms);
+  uint64_t seconds = (update_time_ms % 60000U) / 1000U;
+  if(seconds == 1U || time_status != SL_STATUS_OK)
+    {
+      update.state = DWIN_UPDATE_STATE_ERROR;
+      return;
+    }
 
   if(dwin_is_crc_enabled())
     {
@@ -468,7 +496,6 @@ static void dwin_update_case_error_wait_crc_disable(sl_status_t *status)
       dwin_update_file_close(update.file);
     }
 
-  printf("ERRO");
   update.active = false;
 }
 
@@ -520,6 +547,14 @@ static void dwin_update_case_error(sl_status_t *status)
 
   (void)status;
 
+  printf("ERRO");
+  if(update.file != NULL)
+    {
+      dwin_update_file_close(update.file);
+    }
+
+  update.active = false;
+
   if(dwin_is_crc_enabled())
     {
       *status = dwin_disable_crc();
@@ -533,12 +568,6 @@ static void dwin_update_case_error(sl_status_t *status)
       return;
     }
 
-  if(update.file != NULL)
-    {
-      dwin_update_file_close(update.file);
-    }
-
-  update.active = false;
 }
 
 //static void dwin_update_confirm_retry_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -568,6 +597,11 @@ bool dwin_update_is_recoverable_error(sl_status_t status)
     case SL_STATUS_TIMEOUT:
     case SL_STATUS_IO:
     case SL_STATUS_FAIL:
+    case SL_STATUS_TRANSMIT:
+    case SL_STATUS_TRANSMIT_INCOMPLETE:
+    case SL_STATUS_TRANSMIT_BUSY:
+    case SL_STATUS_RECEIVE:
+
       return true;
 
     default:

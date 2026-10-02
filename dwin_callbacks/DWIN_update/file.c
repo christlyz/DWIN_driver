@@ -11,6 +11,7 @@
  ******************************************************************************/
 #include "file.h"
 #include "zigbee_app_framework_event.h"
+#include "sl_sleeptimer.h"
 #include <stdio.h>
 /*******************************************************************************
  * Data types
@@ -23,6 +24,9 @@ static uint8_t progress = 0;
 static uint8_t files_quantity = 0;
 static uint8_t files_updated = 0;
 static files_update_state_t state;
+
+static uint64_t update_start_tick = 0U;
+static uint64_t update_time_ms = 0U;
 
 static sl_zigbee_event_t progress_event;
 static void progress_handler(sl_zigbee_event_t *event);
@@ -80,6 +84,11 @@ sl_status_t start_update()
           return SL_STATUS_IS_WAITING;
         }
 
+      if(files_updated == 0U)
+        {
+          update_start_tick = sl_sleeptimer_get_tick_count64();
+        }
+
       printf("Iniciando arquivo: %s\r\n", current_node->file->name);
 
       sl_zigbee_event_set_delay_ms(&progress_event, 0U);
@@ -134,7 +143,24 @@ sl_status_t start_update()
       return SL_STATUS_IS_WAITING;
       break;
     case FILE_UPDATE_STATE_RESET:
+      sl_status_t time_status;
+      uint64_t elapsed_ticks;
+      elapsed_ticks = sl_sleeptimer_get_tick_count64() - update_start_tick;
+
+      time_status = sl_sleeptimer_tick64_to_ms(elapsed_ticks, &update_time_ms);
+      uint64_t minutes = update_time_ms / 60000U;
+      uint64_t seconds = (update_time_ms % 60000U) / 1000U;
+      uint64_t milliseconds = update_time_ms % 1000;
+
       printf("Todos os arquivos foram atualizados.\r\n");
+      if(time_status == SL_STATUS_OK)
+        {
+          printf("Tempo total: %llu min %02llu s %03llu ms\r\n", (unsigned long long)minutes, (unsigned long long)seconds, (unsigned long long)milliseconds);
+        }
+      else
+        {
+          printf("Erro ao calcular tempo de atualização.\r\n");
+        }
 
       dwin_reset();
 
