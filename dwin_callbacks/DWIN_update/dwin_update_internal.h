@@ -74,6 +74,8 @@ typedef struct
   dwin_update_error_t error;
 
   bool active;
+
+  sl_status_t last_status;
 } dwin_update_t;
 
 extern dwin_update_t update;
@@ -81,4 +83,8 @@ extern dwin_update_t update;
 bool dwin_update_is_recoverable_error(sl_status_t status);
 
 void dwin_update_calculate_progress(void);
+
+
+bool dwin_update_fault_should_trigger(dwin_update_inject_fault_t fault);
+void dwin_update_fault_mark_triggered(void);
 #endif /* DWIN_UPDATE_DWIN_UPDATE_INTERNAL_H_ */

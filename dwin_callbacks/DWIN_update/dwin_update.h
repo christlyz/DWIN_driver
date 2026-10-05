@@ -45,6 +45,18 @@
  ******************************************************************************/
 typedef enum
 {
+  DWIN_UPDATE_INJECT_NONE = 0U,
+  DWIN_UPDATE_INJECT_TIMEOUT_TRANSFER,
+  DWIN_UPDATE_INJECT_COMMUNICATION_LOSS,
+  DWIN_UPDATE_INJECT_START_FAILURE,
+  DWIN_UPDATE_INJECT_MIDDLE_FAILURE,
+  DWIN_UPDATE_INJECT_END_FAILURE,
+} dwin_update_inject_fault_t;
+
+
+
+typedef enum
+{
   DWIN_UPDATE_STATE_ENABLE_CRC,
   DWIN_UPDATE_STATE_WAIT_CRC_ENABLE,
   DWIN_UPDATE_STATE_LOAD_BLOCK,
@@ -80,6 +92,13 @@ typedef enum
 /*******************************************************************************
  * Interface Funtions
  ******************************************************************************/
+void dwin_update_inject_fault(dwin_update_inject_fault_t fault);
+void dwin_update_clear_injected_fault(void);
+bool dwin_update_fault_was_triggered(void);
+
+sl_status_t dwin_update_get_last_status(void);
+
+
 sl_status_t dwin_update_open_file(const char *filename);
 
 /*

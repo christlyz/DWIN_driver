@@ -55,6 +55,9 @@ static void dwin_update_case_error(sl_status_t *status);
 //static void dwin_update_confirm_retry_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 //static void dwin_update_cancel_retry_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 static void dwin_update_debug_print(void);
+
+static dwin_update_inject_fault_t injected_fault = DWIN_UPDATE_INJECT_NONE;
+static bool injected_fault_triggered = false;
 /*******************************************************************************
  * Function name:
  *
@@ -65,6 +68,90 @@ static void dwin_update_debug_print(void);
  * Known issues:
  * Note:
  ******************************************************************************/
+sl_status_t dwin_update_get_last_status(void)
+{
+  return update.last_status;
+}
+
+void dwin_update_inject_fault(dwin_update_inject_fault_t fault)
+{
+  injected_fault = fault;
+  injected_fault_triggered = false;
+}
+
+void dwin_update_clear_injected_fault(void)
+{
+  injected_fault = DWIN_UPDATE_INJECT_NONE;
+}
+
+bool dwin_update_fault_was_triggered(void)
+{
+  return injected_fault_triggered;
+}
+
+void dwin_update_fault_mark_triggered(void)
+{
+  injected_fault_triggered = true;
+}
+bool dwin_update_fault_should_trigger(
+    dwin_update_inject_fault_t fault)
+{
+  uint32_t middle_block;
+  uint32_t last_block;
+
+  if(injected_fault != fault)
+  {
+    return false;
+  }
+
+  switch(fault)
+  {
+    case DWIN_UPDATE_INJECT_TIMEOUT_TRANSFER:
+    case DWIN_UPDATE_INJECT_COMMUNICATION_LOSS:
+
+      return (update.buffer_offset == 0U &&
+              update.block_offset == 0U);
+
+    case DWIN_UPDATE_INJECT_MIDDLE_FAILURE:
+
+      if(update.total_blocks < 3U)
+      {
+        return false;
+      }
+
+      middle_block =
+          update.file_id_base_block +
+          (update.total_blocks / 2U);
+
+      return (update.current_block == middle_block &&
+              update.block_offset == 0U);
+
+    case DWIN_UPDATE_INJECT_END_FAILURE:
+
+      if(update.total_blocks == 0U)
+      {
+        return false;
+      }
+
+      last_block =
+          update.file_id_base_block +
+          update.total_blocks -
+          1U;
+
+      return (update.current_block == last_block);
+
+    case DWIN_UPDATE_INJECT_START_FAILURE:
+
+      return true;
+
+    case DWIN_UPDATE_INJECT_NONE:
+
+    default:
+
+      return false;
+  }
+}
+
 sl_status_t dwin_update_open_file(const char *filename)
 {
   /*
@@ -88,12 +175,16 @@ sl_status_t dwin_update_start(dwin_update_file_t *file, bool *finish)
       file->data == NULL ||
       file->size == 0U ||
       finish == NULL)
-    return SL_STATUS_INVALID_PARAMETER;
+    {
+      return SL_STATUS_INVALID_PARAMETER;
+    }
 
   if(update.active)
     {
       return SL_STATUS_BUSY;
     }
+
+  *finish = false;
 
   memset(&update, 0, sizeof(update));
 
@@ -120,6 +211,17 @@ sl_status_t dwin_update_start(dwin_update_file_t *file, bool *finish)
   if(!dwin_update_validate_file_id_range(&update))
     {
       return SL_STATUS_INVALID_PARAMETER;
+    }
+
+  if(dwin_update_fault_should_trigger(DWIN_UPDATE_INJECT_START_FAILURE))
+    {
+      dwin_update_fault_mark_triggered();
+
+      update.last_status = SL_STATUS_FAIL;
+      update.state = DWIN_UPDATE_STATE_ERROR;
+      update.active = false;
+
+      return SL_STATUS_FAIL;
     }
 
   dwin_update_init_values(&update);
@@ -265,8 +367,7 @@ static void dwin_update_case_wait_crc_enables(sl_status_t *status)
   elapsed_ticks = sl_sleeptimer_get_tick_count64() - update_start_tick;
 
   time_status = sl_sleeptimer_tick64_to_ms(elapsed_ticks, &update_time_ms);
-  uint64_t seconds = (update_time_ms % 60000U) / 1000U;
-  if(seconds == 1U || time_status != SL_STATUS_OK)
+  if(update_time_ms >= DWIN_UPDATE_DEFAULT_TIMEOUT_MS || time_status != SL_STATUS_OK)
     {
       update.state = DWIN_UPDATE_STATE_ERROR;
     }
@@ -307,6 +408,8 @@ static void dwin_update_case_write_ram(sl_status_t *status)
 
   if(*status != SL_STATUS_OK)
     {
+      update.last_status = *status;
+
       update.error = DWIN_UPDATE_ERROR_DWIN_WRITE;
       update.state = DWIN_UPDATE_STATE_ERROR;
       return;
@@ -345,6 +448,8 @@ static void dwin_update_case_flash_write(sl_status_t *status)
           update.flash_retry_count++;
           return;
         }
+      update.last_status = *status;
+
       update.error = DWIN_UPDATE_ERROR_DWIN_WRITE;
       update.state = DWIN_UPDATE_STATE_ERROR;
       return;
@@ -463,8 +568,7 @@ static void dwin_update_case_wait_crc_disable(sl_status_t *status)
   elapsed_ticks = sl_sleeptimer_get_tick_count64() - update_start_tick;
 
   time_status = sl_sleeptimer_tick64_to_ms(elapsed_ticks, &update_time_ms);
-  uint64_t seconds = (update_time_ms % 60000U) / 1000U;
-  if(seconds == 1U || time_status != SL_STATUS_OK)
+  if(update_time_ms == DWIN_UPDATE_DEFAULT_TIMEOUT_MS || time_status != SL_STATUS_OK)
     {
       update.state = DWIN_UPDATE_STATE_ERROR;
       return;
@@ -496,6 +600,7 @@ static void dwin_update_case_error_wait_crc_disable(sl_status_t *status)
       dwin_update_file_close(update.file);
     }
 
+  update.state = DWIN_UPDATE_STATE_ERROR;
   update.active = false;
 }
 
@@ -545,15 +650,19 @@ static void dwin_update_case_error(sl_status_t *status)
 //                         1,
 //                         dwin_update_cancel_retry_callback);
 
-  (void)status;
-
-  printf("ERRO");
-  if(update.file != NULL)
+  if(status == NULL)
     {
-      dwin_update_file_close(update.file);
+      return;
     }
 
-  update.active = false;
+  update.last_status = *status;
+
+  printf("\r\n");
+  printf("[DWIN UPDATE ERROR]\r\n");
+  printf("Estado  : %u\r\n", (unsigned)update.state);
+  printf("Status  : 0x%08lx\r\n", (unsigned long)*status);
+  printf("Erro    : %u\r\n", (unsigned)update.error);
+  printf("Prog.   : %u%%\r\n", (unsigned)update.progress);
 
   if(dwin_is_crc_enabled())
     {
@@ -561,12 +670,23 @@ static void dwin_update_case_error(sl_status_t *status)
 
       if(*status != SL_STATUS_OK)
         {
+          update.last_status = *status;
+          update.state = DWIN_UPDATE_STATE_ERROR;
+          update.active = false;
           return;
         }
 
       update.state = DWIN_UPDATE_STATE_ERROR_WAIT_CRC_DISABLE;
       return;
     }
+
+  if(update.file != NULL)
+    {
+      dwin_update_file_close(update.file);
+    }
+
+  update.active = false;
+  update.state = DWIN_UPDATE_STATE_ERROR;
 
 }
 

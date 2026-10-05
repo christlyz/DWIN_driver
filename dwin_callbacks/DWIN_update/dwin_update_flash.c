@@ -65,6 +65,15 @@ sl_status_t dwin_update_flash_write_block()
   data[10] = 0x00U;
   data[11] = 0x00U;
 
+  if(dwin_update_fault_should_trigger(DWIN_UPDATE_INJECT_END_FAILURE))
+    {
+      printf("[TEST] Falha proximo ao final injetada.\r\n");
+
+      dwin_update_fault_mark_triggered();
+
+      return SL_STATUS_FAIL;
+    }
+
   return dwin_write_vp_async(DWIN_UPDATE_VP_EXTERNAL_FLASH,
                              data,
                              sizeof(data),

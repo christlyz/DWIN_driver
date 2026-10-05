@@ -93,13 +93,14 @@ bool dwin_update_file_read(dwin_update_file_t *file, uint8_t *buffer, size_t siz
 }
 void dwin_update_file_close(dwin_update_file_t *file)
 {
-  if(file == NULL)
-    {
-      return;
-    }
-
-  file->name = NULL;
-  file->data = NULL;
-  file->size = 0U;
-  file->position = 0U;
+  return;
+//  if(file == NULL)
+//    {
+//      return;
+//    }
+//
+//  file->name = NULL;
+//  file->data = NULL;
+//  file->size = 0U;
+//  file->position = 0U;
 }

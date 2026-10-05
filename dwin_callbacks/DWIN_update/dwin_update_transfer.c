@@ -190,6 +190,33 @@ sl_status_t send_buffer_to_ram(void)
 
   update.current_packet_size = packet_size;
 
+  if(dwin_update_fault_should_trigger(DWIN_UPDATE_INJECT_TIMEOUT_TRANSFER))
+    {
+      printf("[TEST] Timeout de transferencia injetado.\r\n");
+
+      dwin_update_fault_mark_triggered();
+
+      dwin_service_test_drop_next_response();
+    }
+
+  if(dwin_update_fault_should_trigger(DWIN_UPDATE_INJECT_COMMUNICATION_LOSS))
+    {
+      printf("[TEST] Perda de comunicacao injetada.\r\n");
+
+      dwin_update_fault_mark_triggered();
+
+      return SL_STATUS_IO;
+    }
+
+  if(dwin_update_fault_should_trigger(DWIN_UPDATE_INJECT_MIDDLE_FAILURE))
+    {
+      printf("[TEST] Falha no meio da transferencia injetada.\r\n");
+
+      dwin_update_fault_mark_triggered();
+
+      return SL_STATUS_FAIL;
+    }
+
   return dwin_write_vp_async(
       update.ram_address,
       &update.buffer[update.buffer_offset],

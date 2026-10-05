@@ -60,6 +60,13 @@ static uint8_t rx_buffer[DWIN_MAX_PACKET_SIZE];
 static size_t rx_count = 0;
 
 static dwin_config_t *dwin;
+
+static bool drop_next_async_response = false;
+
+void dwin_service_test_drop_next_response(void)
+{
+  drop_next_async_response = true;
+}
 /*******************************************************************************
  * Extern
  ******************************************************************************/
@@ -916,11 +923,16 @@ static void parse_ack(const uint8_t *packet, size_t packet_size)
       return;
     }
 
+  if(drop_next_async_response)
+    {
+      return;
+    }
+
   pending_write.active = false;
   pending_write.callback = NULL;
   pending_write.context = NULL;
 
-  if(packet[4] == DWIN_WRITE_OK_1 ||
+  if(packet[4] == DWIN_WRITE_OK_1 &&
       packet[5] == DWIN_WRITE_OK_2)
     {
       callback(SL_STATUS_OK, vp, context);
@@ -1026,6 +1038,11 @@ static void dwin_process_timeout_write()
           void *context = pending_write.context;
 
           pending_write.active = false;
+
+          if(drop_next_async_response)
+            {
+              drop_next_async_response = false;
+            }
 
           callback(SL_STATUS_TIMEOUT, vp, context);
         }

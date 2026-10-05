@@ -112,6 +112,8 @@ sl_status_t dwin_reset();
 sl_status_t dwin_enable_crc();
 sl_status_t dwin_disable_crc();
 bool dwin_is_crc_enabled();
+
+void dwin_service_test_drop_next_response(void);
 /*******************************************************************************
  * End
  ******************************************************************************/
