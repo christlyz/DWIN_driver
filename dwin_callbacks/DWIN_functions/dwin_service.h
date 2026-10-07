@@ -105,6 +105,12 @@ sl_status_t dwin_unregister_callback(uint16_t vp, uint8_t instruction, uint16_t 
 
 sl_status_t dwin_write_vp_async(uint16_t vp, uint8_t *data, size_t data_size, uint32_t timeout_ms, dwin_write_ack_callback_t callback, void *context);
 
+sl_status_t dwin_write_version_nor_flash(uint16_t vp, uint16_t words);
+sl_status_t dwin_read_version_nor_flash(uint16_t vp, uint16_t words);
+
+sl_status_t dwin_write_config_nor_flash(uint16_t vp, uint16_t words);
+sl_status_t dwin_read_config_nor_flash(uint16_t vp, uint16_t words);
+
 sl_status_t dwin_change_page(uint16_t page);
 sl_status_t dwin_play_buzzer_ms(uint16_t milisseconds);
 sl_status_t dwin_reset();

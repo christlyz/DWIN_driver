@@ -54,10 +54,12 @@ static void dwin_update_case_update_finish(sl_status_t *status);
 static void dwin_update_case_error(sl_status_t *status);
 //static void dwin_update_confirm_retry_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
 //static void dwin_update_cancel_retry_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context);
+static void dwin_update_retry_or_finish(void);
 static void dwin_update_debug_print(void);
 
 static dwin_update_inject_fault_t injected_fault = DWIN_UPDATE_INJECT_NONE;
 static bool injected_fault_triggered = false;
+static uint8_t injected_fault_count = 0U;
 /*******************************************************************************
  * Function name:
  *
@@ -76,12 +78,14 @@ sl_status_t dwin_update_get_last_status(void)
 void dwin_update_inject_fault(dwin_update_inject_fault_t fault)
 {
   injected_fault = fault;
+  injected_fault_count = 1U;
   injected_fault_triggered = false;
 }
 
 void dwin_update_clear_injected_fault(void)
 {
   injected_fault = DWIN_UPDATE_INJECT_NONE;
+  injected_fault_count = 0U;
 }
 
 bool dwin_update_fault_was_triggered(void)
@@ -89,9 +93,21 @@ bool dwin_update_fault_was_triggered(void)
   return injected_fault_triggered;
 }
 
+void dwin_update_inject_fault_count(dwin_update_inject_fault_t fault, uint8_t count)
+{
+  injected_fault = fault;
+  injected_fault_count = count;
+  injected_fault_triggered = false;
+}
+
 void dwin_update_fault_mark_triggered(void)
 {
   injected_fault_triggered = true;
+
+  if(injected_fault_count > 0U)
+    {
+      injected_fault_count--;
+    }
 }
 bool dwin_update_fault_should_trigger(
     dwin_update_inject_fault_t fault)
@@ -103,6 +119,11 @@ bool dwin_update_fault_should_trigger(
   {
     return false;
   }
+
+  if(injected_fault_count == 0U)
+    {
+      return false;
+    }
 
   switch(fault)
   {
@@ -595,13 +616,7 @@ static void dwin_update_case_error_wait_crc_disable(sl_status_t *status)
       return;
     }
 
-  if(update.file != NULL)
-    {
-      dwin_update_file_close(update.file);
-    }
-
-  update.state = DWIN_UPDATE_STATE_ERROR;
-  update.active = false;
+  dwin_update_retry_or_finish();
 }
 
 /*
@@ -617,6 +632,7 @@ static void dwin_update_case_update_finish(sl_status_t *status)
     }
 
   update.active = false;
+
   if(finished != NULL)
     {
       *finished = true;
@@ -659,20 +675,25 @@ static void dwin_update_case_error(sl_status_t *status)
 
   printf("\r\n");
   printf("[DWIN UPDATE ERROR]\r\n");
-  printf("Estado  : %u\r\n", (unsigned)update.state);
-  printf("Status  : 0x%08lx\r\n", (unsigned long)*status);
-  printf("Erro    : %u\r\n", (unsigned)update.error);
-  printf("Prog.   : %u%%\r\n", (unsigned)update.progress);
+  printf("Estado    : %u\r\n", (unsigned)update.state);
+  printf("Status    : 0x%08lx\r\n", (unsigned long)*status);
+  printf("Erro      : %u\r\n", (unsigned)update.error);
+  printf("Prog.     : %u%%\r\n", (unsigned)update.progress);
+  printf("Tentativa : %u/%u\r\n", (unsigned)(update.retries + 1U), (unsigned)DWIN_UPDATE_MAX_RETRIES);
 
   if(dwin_is_crc_enabled())
     {
-      *status = dwin_disable_crc();
+      sl_status_t disable_status;
 
-      if(*status != SL_STATUS_OK)
+      disable_status = dwin_disable_crc();
+
+      if(disable_status != SL_STATUS_OK)
         {
-          update.last_status = *status;
+          update.last_status = disable_status;
           update.state = DWIN_UPDATE_STATE_ERROR;
           update.active = false;
+
+          printf("[DWIN UPDATE] Falha ao desabilitar CRC.\r\n");
           return;
         }
 
@@ -680,14 +701,7 @@ static void dwin_update_case_error(sl_status_t *status)
       return;
     }
 
-  if(update.file != NULL)
-    {
-      dwin_update_file_close(update.file);
-    }
-
-  update.active = false;
-  update.state = DWIN_UPDATE_STATE_ERROR;
-
+  dwin_update_retry_or_finish();
 }
 
 //static void dwin_update_confirm_retry_callback(uint16_t vp, const uint8_t *data, size_t data_size, void *context)
@@ -709,6 +723,74 @@ static void dwin_update_case_error(sl_status_t *status)
  * Responsável por verificar se um erro pode ser recuperado através
  * de uma nova tentativa.
  */
+
+static void dwin_update_retry_or_finish(void)
+{
+  dwin_update_file_t *file;
+  bool *finish;
+  uint8_t retries;
+  sl_status_t status;
+
+  /*
+   * Se já foram feitas 2 tentativas de retry,
+   * a próxima seria a terceira tentativa total.
+   *
+   * retries:
+   * 0 = primeira tentativa
+   * 1 = segunda tentativa
+   * 2 = terceira tentativa
+   */
+
+  if(update.retries + 1U >= DWIN_UPDATE_MAX_RETRIES)
+    {
+      printf("[DWIN UPDATE] Numero maximo de tentativas atingido.\r\n");
+
+      if(update.file != NULL)
+        {
+          dwin_update_file_close(update.file);
+        }
+
+      update.active = false;
+      update.state = DWIN_UPDATE_STATE_ERROR;
+
+      return;
+    }
+
+  /*
+   * Salva informações que serão apagadas pelo memset()
+   * de dwin_update_start().
+   */
+  file = update.file;
+  finish = finished;
+  retries = update.retries + 1U;
+
+  printf("[DWIN UPDATE] Reiniciando atualizacao.\r\n");
+  printf("[DWIN UPDATE] Tentativa %u/%u.\r\n", (unsigned)(retries + 1U), (unsigned)DWIN_UPDATE_MAX_RETRIES);
+
+  /*
+   * Permite que dwin_update_start() seja chamado novamente.
+   */
+  update.active = false;
+  status = dwin_update_start(file, finish);
+
+  if(status != SL_STATUS_OK)
+    {
+      update.last_status = status;
+      update.state = DWIN_UPDATE_STATE_ERROR;
+      update.active = false;
+
+      printf("[DWIN UPDATE] Falha ao reiniciar atualizacao.\r\n");
+      printf("[DWIN UPDATE] Status: 0x%08lx\r\n", (unsigned long)status);
+      return;
+    }
+
+  /*
+   * dwin_update_start() zerou a estrutura.
+   * Restaura a quantidade de retries.
+   */
+  update.retries = retries;
+}
+
 bool dwin_update_is_recoverable_error(sl_status_t status)
 {
   switch(status)
@@ -735,6 +817,14 @@ bool dwin_update_is_recoverable_error(sl_status_t status)
 bool dwin_update_is_active(void)
 {
   return update.active;
+}
+
+/*
+ * Responsável por retornar quantas tentativas foram executadas.
+ */
+uint8_t dwin_update_get_attempts(void)
+{
+  return (uint8_t)(update.retries + 1U);
 }
 
 /*

@@ -64,6 +64,7 @@ typedef struct
 
   bool flash_status_pending;
 
+  uint8_t retries;
   uint8_t ram_retry_count;
   uint8_t flash_retry_count;
   uint8_t flash_status_retry_count;

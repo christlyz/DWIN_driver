@@ -14,6 +14,7 @@
 #include "sl_status.h"
 
 #include "dwin_file.h"
+#include "dwin_update_internal.h"
 
 typedef enum
 {

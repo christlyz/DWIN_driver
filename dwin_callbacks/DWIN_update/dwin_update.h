@@ -95,6 +95,7 @@ typedef enum
 void dwin_update_inject_fault(dwin_update_inject_fault_t fault);
 void dwin_update_clear_injected_fault(void);
 bool dwin_update_fault_was_triggered(void);
+void dwin_update_inject_fault_count(dwin_update_inject_fault_t fault, uint8_t count);
 
 sl_status_t dwin_update_get_last_status(void);
 
@@ -121,6 +122,10 @@ dwin_update_state_t dwin_update_get_state(void);
  */
 dwin_update_error_t dwin_update_get_error(void);
 
+/*
+ * Responsável por retornar quantas tentativas foram executadas.
+ */
+uint8_t dwin_update_get_attempts(void);
 /*
  * Responsável por retornar o progresso atual da atualização.
  */

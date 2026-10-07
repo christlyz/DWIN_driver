@@ -40,7 +40,6 @@ static sl_status_t test_last_status = SL_STATUS_OK;
 static bool test_active = false;
 static bool test_full_sequence = false;
 static bool test_finished = false;
-static bool test_retry_started = false;
 
 /******************************************************************************/
 /** Private test objects                                                     **/
@@ -112,7 +111,6 @@ void dwin_update_test_init(void)
   test_active = false;
   test_full_sequence = false;
   test_finished = false;
-  test_retry_started = false;
 
   dwin_update_clear_injected_fault();
 }
@@ -146,7 +144,6 @@ sl_status_t dwin_update_test_start(dwin_update_test_id_t test_id)
   test_active = true;
   test_full_sequence = false;
   test_finished = false;
-  test_retry_started = false;
   test_current_file = NULL;
   test_last_status = SL_STATUS_OK;
 
@@ -176,7 +173,6 @@ sl_status_t dwin_update_test_start_all(void)
   test_active = true;
   test_full_sequence = true;
   test_finished = false;
-  test_retry_started = false;
   test_current_file = NULL;
   test_last_status = SL_STATUS_OK;
 
@@ -514,28 +510,40 @@ static void dwin_update_test_start_current(void)
 
     case DWIN_UPDATE_TEST_RETRY_AFTER_FAILURE:
 
-      if(!dwin_update_test_start_file(test_file))
-      {
-        dwin_update_test_set_result(
-            test_current,
-            DWIN_UPDATE_TEST_RESULT_FAIL);
+      if(test_file == NULL)
+        {
+          test_last_status = SL_STATUS_INVALID_STATE;
 
-        dwin_update_test_complete_current();
-        return;
-      }
+          dwin_update_test_set_result(test_current, DWIN_UPDATE_TEST_RESULT_FAIL);
+
+          dwin_update_test_complete_current();
+          return;
+        }
+
+      test_file->position = 0U;
+      test_finished = false;
 
       /*
-       * Primeira tentativa deve falhar no meio.
+       * A mesma falha será injetada nas três tentativas
        */
-      dwin_update_clear_injected_fault();
+      dwin_update_inject_fault_count(DWIN_UPDATE_INJECT_MIDDLE_FAILURE, DWIN_UPDATE_MAX_RETRIES);
 
-      dwin_update_inject_fault(
-          DWIN_UPDATE_INJECT_MIDDLE_FAILURE);
+      test_last_status = dwin_update_start(test_file, &test_finished);
 
-      printf("Teste %02u - %s: primeira tentativa iniciada.\r\n",
-             (unsigned)(test_current + 1U),
-             dwin_update_test_get_name(test_current));
+      if(test_last_status != SL_STATUS_OK)
+        {
+          dwin_update_clear_injected_fault();
 
+          dwin_update_test_set_result(test_current, DWIN_UPDATE_TEST_RESULT_FAIL);
+
+          dwin_update_test_complete_current();
+          return;
+        }
+
+      printf("Teste %02u - %s iniciado.\r\n", (unsigned)(test_current + 1U), dwin_update_test_get_name(test_current));
+      printf("Falha sera injetada em todas as %u tentativas.\r\n", (unsigned)DWIN_UPDATE_MAX_RETRIES);
+
+      test_state = DWIN_UPDATE_TEST_STATE_WAIT_UPDATE;
       return;
 
     case DWIN_UPDATE_TEST_CONSECUTIVE_UPDATES:
@@ -588,117 +596,164 @@ static void dwin_update_test_start_current(void)
 static void dwin_update_test_wait_update(void)
 {
   dwin_update_state_t state;
-
-  if(dwin_update_is_active())
-    {
-      return;
-    }
-
-  state = dwin_update_get_state();
+  uint8_t attempts;
 
   /*
-   * ----------------------------------------------------------
-   * RETRY
-   * ----------------------------------------------------------
+   * Atualização ainda em andamento.
+   */
+  if(dwin_update_is_active())
+  {
+    return;
+  }
+
+  state = dwin_update_get_state();
+  attempts = dwin_update_get_attempts();
+
+  /*
+   * ==========================================================
+   * TESTE DE NOVA TENTATIVA
+   * ==========================================================
+   *
+   * Este teste verifica se o próprio dwin_update executou
+   * as 3 tentativas automaticamente.
    */
   if(test_current == DWIN_UPDATE_TEST_RETRY_AFTER_FAILURE)
   {
-    if(!test_retry_started &&
-       state == DWIN_UPDATE_STATE_ERROR)
+    /*
+     * O teste só passa se:
+     * - ocorrer ERROR definitivo;
+     * - forem executadas exatamente 3 tentativas;
+     * - a falha tiver sido realmente injetada.
+     */
+    if(state == DWIN_UPDATE_STATE_ERROR)
     {
-      printf("[RETRY] Primeira tentativa falhou.\r\n");
+      printf("\r\n");
+      printf("[RETRY TEST]\r\n");
+      printf("Tentativas realizadas: %u\r\n",
+             (unsigned)attempts);
 
-      dwin_update_clear_injected_fault();
+      printf("Status final: 0x%08lx\r\n",
+             (unsigned long)dwin_update_get_last_status());
 
-      test_retry_started = true;
-      test_file->position = 0U;
-      test_finished = false;
+      printf("Erro final: %u\r\n",
+             (unsigned)dwin_update_get_error());
 
-      dwin_update_test_set_result(
-          test_current,
-          DWIN_UPDATE_TEST_RESULT_RUNNING);
-
-      test_last_status =
-          dwin_update_start(
-              test_file,
-              &test_finished);
-
-      if(test_last_status != SL_STATUS_OK)
+      if(attempts == DWIN_UPDATE_MAX_RETRIES &&
+         dwin_update_fault_was_triggered())
       {
+        printf("[RETRY TEST] PASS - limite de tentativas validado.\r\n");
+
+        dwin_update_test_set_result(
+            test_current,
+            DWIN_UPDATE_TEST_RESULT_PASS);
+      }
+      else
+      {
+        printf("[RETRY TEST] FAIL.\r\n");
+
         dwin_update_test_set_result(
             test_current,
             DWIN_UPDATE_TEST_RESULT_FAIL);
-
-        dwin_update_test_complete_current();
-        return;
       }
 
-      printf("[RETRY] Segunda tentativa iniciada.\r\n");
-
-      test_state =
-          DWIN_UPDATE_TEST_STATE_WAIT_UPDATE;
-
-      return;
-    }
-
-    if(test_retry_started &&
-       state == DWIN_UPDATE_STATE_ERROR)
-    {
-      printf("[RETRY] Segunda tentativa falhou.\r\n");
-
-      dwin_update_test_set_result(
-          test_current,
-          DWIN_UPDATE_TEST_RESULT_FAIL);
+      dwin_update_clear_injected_fault();
 
       dwin_update_test_complete_current();
 
       return;
     }
 
-    if(test_retry_started && test_finished)
+    /*
+     * Se terminou com sucesso antes de usar as 3 tentativas,
+     * o comportamento esperado do teste não foi validado.
+     */
+    if(test_finished)
     {
-      printf("[RETRY] Segunda tentativa concluida.\r\n");
+      printf("[RETRY TEST] FAIL - atualizacao terminou "
+             "antes do limite de tentativas.\r\n");
 
-      dwin_update_test_finish_current();
+      printf("Tentativas realizadas: %u\r\n",
+             (unsigned)attempts);
+
+      dwin_update_test_set_result(
+          test_current,
+          DWIN_UPDATE_TEST_RESULT_FAIL);
+
+      dwin_update_clear_injected_fault();
+
+      dwin_update_test_complete_current();
+
       return;
     }
+
+    /*
+     * Estado inesperado.
+     */
+    printf("[RETRY TEST] Estado inesperado.\r\n");
+    printf("Estado: %u\r\n",
+           (unsigned)state);
+    printf("Tentativas: %u\r\n",
+           (unsigned)attempts);
+
+    dwin_update_test_set_result(
+        test_current,
+        DWIN_UPDATE_TEST_RESULT_FAIL);
+
+    dwin_update_clear_injected_fault();
+
+    dwin_update_test_complete_current();
 
     return;
   }
 
   /*
-   * ----------------------------------------------------------
-   * TESTES DE FALHA
-   * ----------------------------------------------------------
+   * ==========================================================
+   * TESTES DE FALHA COM RECUPERAÇÃO AUTOMÁTICA
+   * ==========================================================
+   *
+   * 06 - Timeout
+   * 07 - Perda de comunicação
+   * 09 - Falha no meio
+   * 10 - Falha próximo ao final
+   *
+   * A falha deve ocorrer pelo menos uma vez e a atualização
+   * deve conseguir finalizar após o retry automático.
    */
   if(dwin_update_test_is_fault_test(test_current))
   {
+    /*
+     * ==========================================================
+     * FALHA NÃO RECUPERADA
+     * ==========================================================
+     */
     if(state == DWIN_UPDATE_STATE_ERROR)
     {
-      printf("[TEST] Falha detectada.\r\n");
-      printf("Estado   : %u\r\n",
+      printf("\r\n");
+      printf("[TEST] Falha detectada e nao recuperada.\r\n");
+
+      printf("Teste      : %02u\r\n",
+             (unsigned)(test_current + 1U));
+
+      printf("Estado     : %u\r\n",
              (unsigned)state);
-      printf("Status   : 0x%08lx\r\n",
+
+      printf("Status     : 0x%08lx\r\n",
              (unsigned long)dwin_update_get_last_status());
-      printf("Progresso: %u%%\r\n",
+
+      printf("Erro       : %u\r\n",
+             (unsigned)dwin_update_get_error());
+
+      printf("Progresso  : %u%%\r\n",
              (unsigned)dwin_update_get_progress());
 
-      dwin_update_test_set_result(
-          test_current,
-          dwin_update_fault_was_triggered()
-          ? DWIN_UPDATE_TEST_RESULT_PASS
-          : DWIN_UPDATE_TEST_RESULT_FAIL);
+      printf("Tentativas : %u/%u\r\n",
+             (unsigned)attempts,
+             (unsigned)DWIN_UPDATE_MAX_RETRIES);
 
-      dwin_update_clear_injected_fault();
-
-      dwin_update_test_complete_current();
-      return;
-    }
-
-    if(test_finished)
-    {
-      printf("[TEST] Falha esperada nao ocorreu.\r\n");
-
+      /*
+       * A falha foi detectada, porém a atualização não
+       * conseguiu se recuperar.
+       */
       dwin_update_test_set_result(
           test_current,
           DWIN_UPDATE_TEST_RESULT_FAIL);
@@ -706,85 +761,189 @@ static void dwin_update_test_wait_update(void)
       dwin_update_clear_injected_fault();
 
       dwin_update_test_complete_current();
+
       return;
     }
 
+    /*
+     * ==========================================================
+     * FALHA DETECTADA E ATUALIZAÇÃO RECUPERADA
+     * ==========================================================
+     */
+    if(test_finished)
+    {
+      printf("\r\n");
+      printf("[TEST] Falha injetada e atualizacao recuperada.\r\n");
+
+      printf("Teste      : %02u\r\n",
+             (unsigned)(test_current + 1U));
+
+      printf("Tentativas do arquivo: %u\r\n",
+             (unsigned)attempts);
+
+      printf("Progresso  : %u%%\r\n",
+             (unsigned)dwin_update_get_progress());
+
+      /*
+       * Para estes testes não importa se a recuperação ocorreu
+       * através do retry do RAM/Flash ou através de uma nova
+       * tentativa completa do arquivo.
+       *
+       * O que importa é:
+       *   1. a falha foi realmente injetada;
+       *   2. a atualização conseguiu terminar.
+       */
+      if(dwin_update_fault_was_triggered() &&
+         dwin_update_get_progress() == 100U)
+      {
+        printf("Resultado  : PASS\r\n");
+        printf("Motivo     : falha detectada e recuperacao "
+               "bem-sucedida.\r\n");
+
+        dwin_update_test_set_result(
+            test_current,
+            DWIN_UPDATE_TEST_RESULT_PASS);
+      }
+      else
+      {
+        printf("Resultado  : FAIL\r\n");
+        printf("Motivo     : falha nao foi detectada ou "
+               "progresso final incorreto.\r\n");
+
+        dwin_update_test_set_result(
+            test_current,
+            DWIN_UPDATE_TEST_RESULT_FAIL);
+      }
+
+      dwin_update_clear_injected_fault();
+
+      dwin_update_test_complete_current();
+
+      return;
+    }
+
+    /*
+     * Atualização ainda está aguardando o retry interno.
+     */
     return;
   }
 
   /*
-   * ----------------------------------------------------------
-   * ERRO INESPERADO
-   * ----------------------------------------------------------
+   * ==========================================================
+   * ERRO NÃO ESPERADO
+   * ==========================================================
    */
   if(state == DWIN_UPDATE_STATE_ERROR)
   {
+    printf("\r\n");
     printf("[TEST] Erro inesperado.\r\n");
-    printf("Estado: %u\r\n",
+
+    printf("Teste   : %02u\r\n",
+           (unsigned)(test_current + 1U));
+
+    printf("Estado  : %u\r\n",
            (unsigned)state);
-    printf("Status: 0x%08lx\r\n",
+
+    printf("Status  : 0x%08lx\r\n",
            (unsigned long)dwin_update_get_last_status());
+
+    printf("Erro    : %u\r\n",
+           (unsigned)dwin_update_get_error());
 
     dwin_update_test_set_result(
         test_current,
         DWIN_UPDATE_TEST_RESULT_FAIL);
 
     dwin_update_test_complete_current();
+
     return;
   }
 
   /*
-   * ----------------------------------------------------------
+   * ==========================================================
    * ATUALIZAÇÃO CONCLUÍDA
-   * ----------------------------------------------------------
+   * ==========================================================
    */
   if(test_finished)
   {
     /*
-     * Atualizações consecutivas.
+     * ----------------------------------------------------------
+     * ATUALIZAÇÕES CONSECUTIVAS
+     * ----------------------------------------------------------
      */
     if(test_current == DWIN_UPDATE_TEST_CONSECUTIVE_UPDATES)
     {
+      /*
+       * Ainda existem arquivos.
+       */
       if(test_current_file != NULL &&
          test_current_file->next != NULL)
       {
         test_current_file =
             test_current_file->next;
 
+        printf("Proximo arquivo: %s\r\n",
+               test_current_file->file->name);
+
         if(!dwin_update_test_start_file(
                test_current_file->file))
         {
+          printf("[TEST] Falha ao iniciar arquivo consecutivo.\r\n");
+
           dwin_update_test_set_result(
               test_current,
               DWIN_UPDATE_TEST_RESULT_FAIL);
 
           dwin_update_test_complete_current();
+
           return;
         }
-
-        printf("Proximo arquivo: %s\r\n",
-               test_current_file->file->name);
 
         return;
       }
 
+      /*
+       * Último arquivo concluído.
+       */
       printf("Todos os arquivos foram atualizados.\r\n");
+      printf("Nenhum reset foi executado entre os arquivos.\r\n");
 
       dwin_update_test_finish_current();
+
       return;
     }
 
     /*
-     * Todos os outros testes concluídos.
+     * ----------------------------------------------------------
+     * DEMAIS TESTES
+     * ----------------------------------------------------------
+     *
+     * Isso inclui:
+     * 01 - Arquivo válido
+     * 05 - Atualização completa
+     * 14 - Inicialização DWIN
      */
     dwin_update_test_finish_current();
+
     return;
   }
 
   /*
-   * Caso inesperado.
+   * ==========================================================
+   * ESTADO INESPERADO
+   * ==========================================================
    */
-  printf("[TEST] Estado inesperado.\r\n");
+  printf("\r\n");
+  printf("[TEST] Estado final inesperado.\r\n");
+
+  printf("Teste   : %02u\r\n",
+         (unsigned)(test_current + 1U));
+
+  printf("Estado  : %u\r\n",
+         (unsigned)state);
+
+  printf("Status  : 0x%08lx\r\n",
+         (unsigned long)dwin_update_get_last_status());
 
   dwin_update_test_set_result(
       test_current,
@@ -818,7 +977,6 @@ static void dwin_update_test_next(void)
   test_current++;
 
   test_finished = false;
-  test_retry_started = false;
   test_current_file = NULL;
   test_last_status = SL_STATUS_OK;
 
