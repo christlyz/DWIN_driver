@@ -24,6 +24,8 @@ static void update_handler(sl_zigbee_event_t *event);
 static sl_zigbee_event_t test_update_event;
 static void test_update_handler(sl_zigbee_event_t *event);
 
+static sl_zigbee_event_t wait_init_event;
+static void wait_init_handler(sl_zigbee_event_t *event);
 dwin_config_t *my_dwin;
 
 /*******************************************************************************
@@ -51,13 +53,39 @@ static void update_callback(uint16_t vp, const uint8_t *data, size_t data_size, 
  ******************************************************************************/
 void application_init()
 {
+  dwin_service_init();
+
+  sl_zigbee_event_init(&wait_init_event, wait_init_handler);
+  sl_zigbee_event_set_delay_ms(&wait_init_event, 3000);
+}
+
+static void wait_init_handler(sl_zigbee_event_t *event)
+{
+  sl_status_t status;
+  sl_zigbee_event_set_inactive(event);
+
   my_dwin = dwin_get_config();
 
-  my_dwin->standby_brightness_activated = true;
-  my_dwin->touch_sound_activated = false;
-  my_dwin->brightness = 100;
-  my_dwin->standby_brightness = 25;
-  my_dwin->standby_timeout = 5000;
+  if(my_dwin == NULL)
+    {
+      printf("Erro ao obter configuracao da DWIN\r\n");
+      return;
+    }
+
+  status = dwin_load_config();
+
+  if(status != SL_STATUS_OK)
+    {
+      printf("Erro ao carregar configuracao da DWIN\r\n");
+      return;
+    }
+//    my_dwin->standby_brightness_activated = true;
+//    my_dwin->touch_sound_activated = false;
+//    my_dwin->crc_activated = false;
+//    my_dwin->rotation = DWIN_DEFAULT_SCREEN_ROTATION;
+//    my_dwin->brightness = 100;
+//    my_dwin->standby_brightness = 25;
+//    my_dwin->standby_timeout = 5000;
 
   if(dwin_configure_device() != SL_STATUS_OK)
     printf("Erro de configuracao");
@@ -113,22 +141,22 @@ void application_init()
 
 //  dwin_play_buzzer_ms(250);
 
-  dwin_update_test_init();
-  file_list_build();
-  dwin_update_test_set_file(get_file_13TouchFile());
-
-  sl_status_t status;
-  status = dwin_update_test_start_all();
-
-  if(status != SL_STATUS_OK)
-    {
-      printf("Falha ao iniciar teste: 0x%08lx\r\n", status);
-    }
-  else
-    {
-      sl_zigbee_event_init(&test_update_event, test_update_handler);
-      sl_zigbee_event_set_delay_ms(&test_update_event, 5000);
-    }
+//  dwin_update_test_init();
+//  file_list_build();
+//  dwin_update_test_set_file(get_file_13TouchFile());
+//
+//  sl_status_t status;
+//  status = dwin_update_test_start_all();
+//
+//  if(status != SL_STATUS_OK)
+//    {
+//      printf("Falha ao iniciar teste: 0x%08lx\r\n", status);
+//    }
+//  else
+//    {
+//      sl_zigbee_event_init(&test_update_event, test_update_handler);
+//      sl_zigbee_event_set_delay_ms(&test_update_event, 5000);
+//    }
 
 //  sl_zigbee_event_init(&update_event, update_handler);
 //  sl_zigbee_event_set_delay_ms(&update_event, 5000);
