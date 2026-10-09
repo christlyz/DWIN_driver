@@ -58,8 +58,8 @@
 #define DWIN_CMD_WRITE  0x82
 #define DWIN_CMD_READ   0x83
 
-#define DWIN_VERSION_SIZE_WORDS   0x05
-#define DWIN_CONFIG_SIZE_WORDS    0x04
+#define DWIN_VERSION_SIZE_WORDS   6U
+#define DWIN_CONFIG_SIZE_WORDS    4U
 
 #define DWIN_SCREEN_00_DEGREES    0
 #define DWIN_SCREEN_90_DEGREES    1
@@ -88,6 +88,7 @@ typedef void (*dwin_write_ack_callback_t)(sl_status_t status, uint16_t vp, void 
  * Interface Funtions
  ******************************************************************************/
 dwin_config_t* dwin_get_config();
+sl_status_t dwin_save_config();
 sl_status_t dwin_load_config(void);
 void dwin_service_init(void);
 
@@ -102,7 +103,7 @@ sl_status_t dwin_read_text(uint16_t vp, uint8_t expected_size, dwin_read_callbac
 size_t dwin_extract_text(const uint8_t *data, size_t data_size, char *text, size_t text_size);
 sl_status_t dwin_clear_text(uint16_t vp, uint8_t text_size);
 
-sl_status_t dwin_write(uint16_t vp, uint8_t *data, size_t data_size);
+sl_status_t dwin_write(uint16_t vp, const uint8_t *data, size_t data_size);
 sl_status_t dwin_read_vp_async(uint16_t vp, uint8_t words, uint32_t timeout_ms, dwin_read_callback_t callback);
 sl_status_t dwin_cancel_read_vp(uint16_t vp);
 

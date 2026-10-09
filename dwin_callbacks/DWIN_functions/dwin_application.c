@@ -158,8 +158,10 @@ static void wait_init_handler(sl_zigbee_event_t *event)
 //      sl_zigbee_event_set_delay_ms(&test_update_event, 5000);
 //    }
 
-//  sl_zigbee_event_init(&update_event, update_handler);
-//  sl_zigbee_event_set_delay_ms(&update_event, 5000);
+  file_update_init();
+//  file_update_set_force(true);
+  sl_zigbee_event_init(&update_event, update_handler);
+  sl_zigbee_event_set_delay_ms(&update_event, 5000);
 
 //  dwin_change_page(3);
 }

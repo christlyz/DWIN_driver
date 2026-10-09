@@ -80,7 +80,6 @@ void dwin_service_test_drop_next_response(void)
  * Private Function Prototypes
  ******************************************************************************/
 static void read_config_callback(sl_status_t status, uint16_t vp, const uint8_t *data, size_t data_size, void *context);
-static void dwin_save_config();
 static sl_status_t dwin_read(uint16_t vp, uint8_t words);
 static void dwin_handle_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context);
 static void dwin_dispatch_received_vp(uint16_t vp, uint8_t instruction, const uint8_t *data, size_t size, void *context);
@@ -121,6 +120,27 @@ static void stop_timeout();
 dwin_config_t* dwin_get_config()
 {
   return dwin;
+}
+
+sl_status_t dwin_save_config()
+{
+  uint8_t config[8];
+  config[0] = dwin->standby_brightness_activated;
+  config[1] = dwin->touch_sound_activated;
+  config[2] = dwin->crc_activated;
+  config[3] = dwin->rotation;
+  config[4] = dwin->brightness;
+  config[5] = dwin->standby_brightness;
+  config[6] = (uint8_t)(dwin->standby_timeout >> 8);
+  config[7] = (uint8_t)(dwin->standby_timeout);
+
+  sl_status_t status = dwin_write_vp(DWIN_VP_CONFIG, config, sizeof(config));
+
+  if(status != SL_STATUS_OK)
+    {
+      return status;
+    }
+  return dwin_write_config_nor_flash();
 }
 
 sl_status_t dwin_load_config(void)
@@ -256,31 +276,9 @@ void configure_handler(sl_zigbee_event_t *event)
       return;
     }
 
-  if(stored_crc_activated)
-    {
-      dwin_enable_crc();
-    }
-  else
-    {
-      dwin_save_config();
-    }
+  dwin_save_config();
 }
 
-static void dwin_save_config()
-{
-  uint8_t config[8];
-  config[0] = dwin->standby_brightness_activated;
-  config[1] = dwin->touch_sound_activated;
-  config[2] = dwin->crc_activated;
-  config[3] = dwin->rotation;
-  config[4] = dwin->brightness;
-  config[5] = dwin->standby_brightness;
-  config[6] = (uint8_t)(dwin->standby_timeout >> 8);
-  config[7] = (uint8_t)(dwin->standby_timeout);
-
-  dwin_write_vp(DWIN_VP_CONFIG, config, sizeof(config));
-  dwin_write_config_nor_flash();
-}
 /*
  * Callback responsável por ativar/desativar o standby e o touch sound
  */
@@ -442,7 +440,7 @@ sl_status_t dwin_clear_text(uint16_t vp, uint8_t text_size)
   return status;
 }
 
-sl_status_t dwin_write(uint16_t vp, uint8_t *data, size_t data_size)
+sl_status_t dwin_write(uint16_t vp, const uint8_t *data, size_t data_size)
 {
   if(data == NULL)
     {
@@ -738,7 +736,7 @@ static sl_status_t dwin_rw_version_nor_flash(uint16_t vp, uint8_t action)
   data[0] = action;
   data[1] = 0x00;
   data[2] = 0x00;
-  data[3] = 0x00;
+  data[3] = 0x20;
   data[4] = (uint8_t)(vp >> 8);
   data[5] = (uint8_t)vp;
   data[6] = 0x00;
@@ -801,8 +799,6 @@ static void dwin_enable_crc_callback(sl_status_t status, uint16_t vp, void *cont
       return;
     }
   dwin->crc_activated = true;
-
-  dwin_save_config();
 }
 
 sl_status_t dwin_disable_crc()
@@ -834,7 +830,6 @@ static void dwin_disable_crc_callback(sl_status_t status, uint16_t vp, void *con
     }
 
   dwin->crc_activated = false;
-  dwin_save_config();
 }
 /*
  * Troca a página atual da DWIN
